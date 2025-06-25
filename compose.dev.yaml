@@ -1,0 +1,7 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    env_file:
+      - .env.development
+    ports:
+      - 5432:5432
