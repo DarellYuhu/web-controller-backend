@@ -7,7 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = new DocumentBuilder().setTitle('Web Controller API').build();
   const document = SwaggerModule.createDocument(app, config);
-  app.use('/api-docs', apiReference({ content: document }));
+  app.use('/api-docs', apiReference({ content: document, layout: 'classic' }));
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

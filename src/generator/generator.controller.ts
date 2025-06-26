@@ -5,8 +5,8 @@ import { GeneratorService } from './generator.service';
 export class GeneratorController {
   constructor(private readonly generatorService: GeneratorService) {}
   @Post()
-  generate() {
-    this.generatorService.generate();
+  async generate() {
+    await this.generatorService.generate();
     return { message: 'success' };
   }
 }
