@@ -1,12 +1,12 @@
-import { Controller, Post } from '@nestjs/common';
+import { Controller, Param, Post } from '@nestjs/common';
 import { GeneratorService } from './generator.service';
 
 @Controller('generator')
 export class GeneratorController {
   constructor(private readonly generatorService: GeneratorService) {}
-  @Post()
-  async generate() {
-    await this.generatorService.generate();
+  @Post(':projectId')
+  async generate(@Param('projectId') projectId: string) {
+    await this.generatorService.generate(projectId);
     return { message: 'success' };
   }
 }

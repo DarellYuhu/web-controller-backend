@@ -5,9 +5,17 @@ import { ArticleModule } from './article/article.module';
 import { PrismaService } from './prisma/prisma.service';
 import { GeneratorModule } from './generator/generator.module';
 import { DockerModule } from './docker/docker.module';
+import { ProjectModule } from './project/project.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [ArticleModule, GeneratorModule, DockerModule],
+  imports: [
+    ArticleModule,
+    PrismaModule,
+    GeneratorModule,
+    DockerModule,
+    ProjectModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })
