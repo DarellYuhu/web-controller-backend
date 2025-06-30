@@ -26,6 +26,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/schedule": "^6.0.0",
     "@nestjs/swagger": "^11.2.0",
     "@prisma/client": "^6.10.1",
     "@scalar/nestjs-api-reference": "^0.5.5",
