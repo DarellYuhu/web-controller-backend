@@ -1,5 +1,4 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import * as fs from 'fs';
 import { execa } from 'execa';
 import Docker from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -19,14 +18,14 @@ export class GeneratorService {
     const lastDp = project.Deployment[0];
     const targetFldr = './tmp/web-template';
     const name = project.name;
-    if (!fs.existsSync(targetFldr)) {
-      await execa('git', [
-        'clone',
-        'https://github.com/DarellYuhu/web-template.git',
-        targetFldr,
-      ]);
-    }
-    await this.buildImg(targetFldr, name);
+    await execa('rm', ['-rf', targetFldr]);
+    await execa('git', [
+      'clone',
+      // 'https://github.com/DarellYuhu/web-template.git',
+      '/home/darell/Projects/web-generator/web-template',
+      targetFldr,
+    ]);
+    await this.buildImg(projectId, targetFldr, name);
     if (lastDp && lastDp.status === 'running') {
       await this.rmDeploy(lastDp.id);
     }
@@ -43,7 +42,7 @@ export class GeneratorService {
     });
   }
 
-  async rmDeploy(dpId: string) {
+  private async rmDeploy(dpId: string) {
     try {
       const container = this.docker.getContainer(dpId);
       console.log(container);
@@ -62,7 +61,7 @@ export class GeneratorService {
     }
   }
 
-  async deployCtr(imgPath: string, imgName: string, port: string) {
+  private async deployCtr(imgPath: string, imgName: string, port: string) {
     try {
       await this.docker.loadImage(imgPath);
       const container = await this.docker.createContainer({
@@ -83,9 +82,61 @@ export class GeneratorService {
     }
   }
 
-  async buildImg(dir: string, name: string) {
+  private async seedData(projectId: string, dir: string) {
     try {
-      await execa('docker', ['build', '-t', name, '.'], { cwd: dir });
+      const articles = await this.prisma.article.findMany({
+        where: { projectId },
+        include: { highlight: true, topPick: true, popular: true },
+      });
+      const categories = await this.prisma.category.findMany();
+      const highlights = articles
+        .filter((item) => item.highlight)
+        .map((item) => ({ articleId: item.id }));
+      const topPicks = articles
+        .filter((item) => item.topPick)
+        .map((item) => ({ articleId: item.id }));
+      const populars = articles
+        .filter((item) => item.popular)
+        .map((item) => ({ articleId: item.id }));
+      await execa('npm', ['i'], { cwd: dir });
+      await execa(
+        'npx',
+        ['prisma', 'migrate', 'deploy', '--schema', 'prisma/schema.prisma'],
+        { cwd: dir, env: { DATABASE_URL: 'file:./prod.db' } },
+      );
+      await execa(
+        'npx',
+        ['prisma', 'generate', '--schema', 'prisma/schema.prisma'],
+        { cwd: dir },
+      );
+      await execa('npx', ['prisma', 'db', 'seed'], {
+        cwd: dir,
+        env: {
+          DATABASE_URL: 'file:./prod.db',
+          FROM_CONTROLLER: 'true',
+          CATEGORIES_DATA: JSON.stringify(categories),
+          ARTICLES_DATA: JSON.stringify(articles),
+          HIGHLIGHTS_DATA: JSON.stringify(highlights),
+          TOPPICKS_DATA: JSON.stringify(topPicks),
+          POPULARS_DATA: JSON.stringify(populars),
+        },
+      });
+    } catch (err) {
+      console.log(err);
+      throw new InternalServerErrorException('Fail build image');
+    }
+  }
+
+  async buildImg(projectId: string, dir: string, name: string) {
+    try {
+      await this.seedData(projectId, dir);
+      await execa('bash', ['-c', 'echo "DATABASE_URL=file:./prod.db" > .env'], {
+        cwd: dir,
+      });
+      await execa('docker', ['build', '-t', name, '.'], {
+        cwd: dir,
+        env: { DATABASE_URL: 'file:./prod.db' },
+      });
       await execa('sh', ['-c', `docker save ${name} | gzip > ${name}.tar.gz`], {
         cwd: dir,
       });

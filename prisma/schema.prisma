@@ -15,20 +15,46 @@ datasource db {
 }
 
 model Article {
-  id            String @unique @default(uuid())
+  id            String   @id @default(uuid())
   title         String
   article       String
-  category      String
   authorName    String
-  datePublished String
+  datePublished DateTime
   imageUrl      String
   tag           String
 
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  highlight  Highlight?
+  topPick    TopPick?
+  popular    Popular?
+  category   Category?  @relation(fields: [categoryId], references: [id])
+  categoryId String?
+}
+
+model Highlight {
+  articleId String  @unique
+  article   Article @relation(fields: [articleId], references: [id])
+}
+
+model TopPick {
+  articleId String  @unique
+  article   Article @relation(fields: [articleId], references: [id])
+}
+
+model Popular {
+  articleId String  @unique
+  article   Article @relation(fields: [articleId], references: [id])
+}
+
+model Category {
+  id      String    @id @default(uuid())
+  name    String    @unique
+  short   String    @unique
+  article Article[]
 }
 
 model Project {
