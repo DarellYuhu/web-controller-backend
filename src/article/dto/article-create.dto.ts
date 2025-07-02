@@ -1,7 +1,8 @@
 import { Prisma } from 'generated/prisma';
 
 export class CreateArticleDto implements Prisma.ArticleCreateInput {
-  article: string;
+  slug: string;
+  contents: string;
   title: string;
   authorName: string;
   datePublished: string;

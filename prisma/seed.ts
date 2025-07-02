@@ -1,5 +1,6 @@
 import { Prisma, PrismaClient } from 'generated/prisma';
 import { faker } from '@faker-js/faker';
+import slugify from 'slugify';
 
 const prisma = new PrismaClient();
 
@@ -22,23 +23,27 @@ async function main() {
     const category = await db.category.createManyAndReturn({
       data: CATEGORY_LIST.map((item) => ({
         name: item,
-        short: item.replace(' ', '_').toLowerCase(),
+        slug: slugify(item),
       })),
     });
     const article = await db.article.createManyAndReturn({
       data: Array.from({ length: 50 }).map(
-        (): Prisma.ArticleCreateManyInput => ({
-          article: faker.lorem.paragraphs(4),
-          authorName: faker.person.fullName(),
-          datePublished: faker.date.past(),
-          imageUrl: faker.image.url(),
-          tag: faker.helpers.arrayElement(['ancestor', 'palawein']),
-          title: faker.lorem.sentence(),
-          projectId: project.id,
-          categoryId: faker.helpers.arrayElement(
-            category.map((item) => item.id),
-          ),
-        }),
+        (): Prisma.ArticleCreateManyInput => {
+          const title = faker.lorem.sentence();
+          return {
+            contents: faker.lorem.paragraphs(4),
+            slug: slugify(title),
+            authorName: faker.person.fullName(),
+            datePublished: faker.date.past(),
+            imageUrl: faker.image.url(),
+            tag: faker.helpers.arrayElement(['ancestor', 'palawein']),
+            title,
+            projectId: project.id,
+            categoryId: faker.helpers.arrayElement(
+              category.map((item) => item.id),
+            ),
+          };
+        },
       ),
     });
     await db.highlight.createMany({

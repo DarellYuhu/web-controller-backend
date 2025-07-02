@@ -45,9 +45,8 @@ export class GeneratorService {
   private async rmDeploy(dpId: string) {
     try {
       const container = this.docker.getContainer(dpId);
-      console.log(container);
       const State = (await container.inspect()).State;
-      if (State.Status === 'running') {
+      if (State.Status === 'running' || State.Status === 'exited') {
         // await container.stop();
         await container.remove({ force: true });
       }
