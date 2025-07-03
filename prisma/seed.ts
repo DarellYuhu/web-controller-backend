@@ -16,7 +16,7 @@ async function main() {
     const project = await db.project.create({
       data: {
         name: 'wayland_project',
-        port: '3009',
+        port: 3009,
         tag: ['ancestor', 'palawein'],
       },
     });

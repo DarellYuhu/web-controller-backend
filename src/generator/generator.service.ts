@@ -60,7 +60,7 @@ export class GeneratorService {
     }
   }
 
-  private async deployCtr(imgPath: string, imgName: string, port: string) {
+  private async deployCtr(imgPath: string, imgName: string, port: number) {
     try {
       await this.docker.loadImage(imgPath);
       const container = await this.docker.createContainer({

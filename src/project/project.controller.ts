@@ -1,13 +1,28 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, ConflictException, Controller, Get, Post } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 
 @Controller('projects')
 export class ProjectController {
   constructor(private readonly projectService: ProjectService) {}
 
   @Post()
-  create(@Body() payload: CreateProjectDto) {
-    return this.projectService.create(payload);
+  async create(@Body() payload: CreateProjectDto) {
+    try {
+      return await this.projectService.create(payload);
+    } catch (error) {
+      if (error instanceof PrismaClientKnownRequestError) {
+        if (error.code === 'P2002')
+          throw new ConflictException(
+            'Name or port already exist. Please change either one of them!',
+          );
+      } else throw error;
+    }
+  }
+
+  @Get()
+  findAll() {
+    return this.projectService.findAll();
   }
 }

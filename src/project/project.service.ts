@@ -9,4 +9,8 @@ export class ProjectService {
   create(payload: CreateProjectDto) {
     return this.prisma.project.create({ data: payload });
   }
+
+  findAll() {
+    return this.prisma.project.findMany({ orderBy: { updatedAt: 'desc' } });
+  }
 }

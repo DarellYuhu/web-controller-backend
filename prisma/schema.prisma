@@ -62,7 +62,7 @@ model Project {
   id   String   @unique @default(uuid())
   name String   @unique
   tag  String[]
-  port String   @unique
+  port Int      @unique
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
