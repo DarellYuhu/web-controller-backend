@@ -7,6 +7,9 @@ import { GeneratorModule } from './generator/generator.module';
 import { DockerModule } from './docker/docker.module';
 import { ProjectModule } from './project/project.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bullmq';
+import { TranscriberModule } from './transcriber/transcriber.module';
 
 @Module({
   imports: [
@@ -15,6 +18,14 @@ import { PrismaModule } from './prisma/prisma.module';
     GeneratorModule,
     DockerModule,
     ProjectModule,
+    TranscriberModule,
+    ScheduleModule.forRoot(),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+      },
+    }),
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
