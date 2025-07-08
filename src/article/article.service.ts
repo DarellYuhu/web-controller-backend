@@ -9,6 +9,10 @@ import { convert } from 'html-to-text';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { TranscriberService } from 'src/transcriber/transcriber.service';
+import { shuffle } from 'lodash';
+import gis from 'async-g-i-s';
+import { MinioService } from 'src/minio/minio.service';
+import mime from 'mime';
 
 @Injectable()
 export class ArticleService {
@@ -17,6 +21,7 @@ export class ArticleService {
     private readonly http: HttpService,
     private readonly scheduler: SchedulerRegistry,
     private readonly transcriber: TranscriberService,
+    private readonly minio: MinioService,
     @InjectQueue('article')
     private readonly generateArticleQueue: Queue,
   ) {}
@@ -49,27 +54,27 @@ export class ArticleService {
 
   @Cron(CronExpression.EVERY_5_SECONDS, { name: 'article-fetching' })
   async fetchScheduler() {
+    console.log('execute');
     this.scheduler.deleteCronJob('article-fetching');
     const { data } = await firstValueFrom(
-      this.http.get<ArticleFetch[]>('/page/list'),
+      this.http.get<ArticleMetadata[]>('/page/list'),
     );
     const articles = (
       await this.prisma.article.findMany({
         select: { id: true },
       })
     ).map((item) => item.id);
-    const filteredArticle = data
-      .filter((item) => !articles.includes(item.id.toString()))
-      .slice(0, 1);
+    const filteredArticle = data.filter(
+      (item) => !articles.includes(item.id.toString()),
+    );
     const { whitelisted, nonWhitelisted } =
       await this.getArticleContent(filteredArticle);
     if (whitelisted.length > 0) await this.createMany(whitelisted);
-    if (nonWhitelisted.length > 0) await this.generateContents(nonWhitelisted);
-
-    // await this.generateArticleQueue.add('generate-articles', nonWhitelisted);
+    if (nonWhitelisted.length > 0)
+      await this.generateContents(nonWhitelisted.slice(0, 2));
   }
 
-  private async getArticleContent(payload: ArticleFetch[]) {
+  private async getArticleContent(payload: ArticleMetadata[]) {
     const result = await Promise.allSettled(
       payload.map(async (a) => {
         const { data } = await firstValueFrom(
@@ -102,7 +107,7 @@ export class ArticleService {
   }
 
   private async generateContents(payload: ParsedArticle[]) {
-    console.log('generating contents...');
+    console.log(`generating contents (size: ${payload.length})...`);
     const categories = await this.prisma.category.findMany({
       omit: { slug: true },
     });
@@ -118,9 +123,62 @@ export class ArticleService {
         ),
       })),
     );
-    const filtered = aiRes
-      .filter((res) => res.status === 'fulfilled')
-      .map((item) => item.value);
+    console.log('...article generated');
+    const filtered = await Promise.all(
+      aiRes
+        .filter((res) => res.status === 'fulfilled')
+        .map(async (item) => {
+          const { value } = item;
+          return {
+            id: value.id,
+            imageId: await this.getImage(item.value.generated.imgPrompt),
+            ...value.generated,
+          };
+        }),
+    );
+    console.log('image processing complete');
+    console.log(filtered);
     return filtered;
   }
+
+  private async getImage(prompt: string) {
+    const result = await gis(prompt);
+    const randomSelect = shuffle(result)[0];
+    if (!randomSelect) return randomSelect;
+    const response = await firstValueFrom(
+      this.http.get<ArrayBuffer>(randomSelect.url, {
+        responseType: 'arraybuffer',
+      }),
+    );
+    const contentType = response.headers['content-type'] as string;
+    if (!contentType.startsWith('image/')) {
+      throw new Error('Fail fetch image');
+    }
+
+    const random4Digit = Math.floor(1000 + Math.random() * 9000);
+    const name = `image-${Date.now()}-${random4Digit}.${mime.getExtension(contentType)}`;
+    const buffer = Buffer.from(response.data);
+    const id = await this.minio.addFile({
+      buffer,
+      contentType,
+      name,
+      path: `image/${name}`,
+    });
+    return id;
+  }
+
+  // async searchFromGoogle(prompt: string) {
+  //   const { data } = await firstValueFrom(
+  //     this.http.get(`/customsearch/v1`, {
+  //       baseURL: 'https://www.googleapis.com',
+  //       params: {
+  //         key: process.env.IMAGE_SEARCH_API_KEY,
+  //         // searchType: 'image',
+  //         // imgSize: 'medium',
+  //         q: prompt,
+  //       },
+  //     }),
+  //   );
+  //   console.log(data);
+  // }
 }

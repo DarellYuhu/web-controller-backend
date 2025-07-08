@@ -1,4 +1,4 @@
-type ArticleFetch = {
+type ArticleMetadata = {
   id: number;
   date: string;
   link: stirng;
@@ -19,4 +19,12 @@ type GeneratedArticle = {
   snippet: string;
   news: string;
   category: string;
+  imgPrompt: string;
+};
+
+type AddImagePayload = {
+  name: string;
+  path: string;
+  contentType: string;
+  buffer: Buffer;
 };

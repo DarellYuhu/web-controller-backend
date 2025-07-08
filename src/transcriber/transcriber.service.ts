@@ -11,6 +11,7 @@ Your output must include:
 * A brief snippet summarizing the key points
 * A full news article in Markdown format, with support for quotes and formatting
 * A category, which must be one of: {input_categories}
+* A prompt for search the image related to the generated article. Make it short and clear in a single sentance.
 
 If the Markdown content includes quotation marks (e.g., direct speech), escape them properly using backslashes (") to maintain valid JSON format. Do not mention or cite any media outlets or source names.
 
@@ -23,6 +24,7 @@ Output Format (Give me only a JSON string, without any markdown formatting like 
   "snippet": "Your concise news summary here",
   "news": "The full news article text here in MD format, with properly escaped quotation marks if any",
   "category": "same as the one above but unly give the id of that categories"
+  "imgPrompt": "The image prompt"
 }
 
 Input Text:

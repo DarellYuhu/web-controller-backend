@@ -25,6 +25,7 @@
     "db:migrate": "npx prisma migrate dev"
   },
   "dependencies": {
+    "@googleapis/customsearch": "^4.0.1",
     "@nestjs/axios": "^4.0.0",
     "@nestjs/bullmq": "^11.0.2",
     "@nestjs/common": "^11.0.1",
@@ -35,6 +36,7 @@
     "@nestjs/swagger": "^11.2.0",
     "@prisma/client": "^6.10.1",
     "@scalar/nestjs-api-reference": "^0.5.5",
+    "async-g-i-s": "^1.5.5",
     "axios": "^1.10.0",
     "bullmq": "^5.56.1",
     "class-transformer": "^0.5.1",
@@ -42,6 +44,9 @@
     "dockerode": "^4.0.7",
     "execa": "^9.6.0",
     "html-to-text": "^9.0.5",
+    "lodash": "^4.17.21",
+    "mime": "^4.0.7",
+    "minio": "^8.0.5",
     "openai": "^5.8.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -60,6 +65,7 @@
     "@types/express": "^5.0.0",
     "@types/html-to-text": "^9.0.4",
     "@types/jest": "^29.5.14",
+    "@types/lodash": "^4.17.20",
     "@types/node": "^22.10.7",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",

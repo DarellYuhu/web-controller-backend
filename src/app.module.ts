@@ -10,6 +10,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
 import { TranscriberModule } from './transcriber/transcriber.module';
+import { MinioModule } from './minio/minio.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { TranscriberModule } from './transcriber/transcriber.module';
         port: parseInt(process.env.REDIS_PORT || '6379'),
       },
     }),
+    MinioModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

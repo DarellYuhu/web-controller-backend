@@ -18,13 +18,14 @@ model Article {
   id            String    @id @default(uuid())
   title         String
   slug          String    @unique
+  imgPrompt     String?
   contents      String?
   datePublished DateTime?
-  imageUrl      String?
   tagId         String?
   authorId      String?
   projectId     String?
   categoryId    String?
+  imageId       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -32,10 +33,22 @@ model Article {
   highlight Highlight?
   topPick   TopPick?
   popular   Popular?
+  image     File?      @relation(fields: [imageId], references: [id])
   author    Author?    @relation(fields: [authorId], references: [id])
   tag       Tag?       @relation(fields: [tagId], references: [id])
   project   Project?   @relation(fields: [projectId], references: [id])
   category  Category?  @relation(fields: [categoryId], references: [id])
+}
+
+model File {
+  id          String @id @default(uuid())
+  name        String
+  path        String
+  contentType String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Article   Article[]
 }
 
 model Highlight {
