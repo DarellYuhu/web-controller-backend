@@ -1,8 +1,16 @@
 import { Prisma, PrismaClient } from 'generated/prisma';
 import { faker } from '@faker-js/faker';
 import slugify from 'slugify';
+import { Client } from 'minio';
 
 const prisma = new PrismaClient();
+const minio = new Client({
+  endPoint: process.env.MINIO_HOST || 'localhost',
+  port: parseInt(process.env.MINIO_PORT || '9000'),
+  accessKey: process.env.MINIO_ACCESS_KEY,
+  secretKey: process.env.MINIO_SECRET_KEY,
+  useSSL: false,
+});
 
 async function main() {
   const CATEGORY_LIST = [
@@ -14,6 +22,11 @@ async function main() {
   ];
   const tags = ['wayland', 'waybar'];
   const whitelist = ['Cebuanos', 'Baricuatro', 'Yomiuri'];
+  await minio.fPutObject(
+    'media',
+    'news-img-placeholder.png',
+    'assets/news-img-placeholder.png',
+  );
   await prisma.$transaction(async (db) => {
     const tagsData = await db.tag.createManyAndReturn({
       data: tags.map((item) => ({ name: item })),
@@ -55,7 +68,6 @@ async function main() {
             contents: faker.lorem.paragraphs(4),
             slug: slugify(title),
             datePublished: faker.date.past(),
-            imageUrl: faker.image.url(),
             title,
             projectId: project.id,
             categoryId: faker.helpers.arrayElement(

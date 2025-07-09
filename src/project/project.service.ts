@@ -10,7 +10,14 @@ export class ProjectService {
     return this.prisma.project.create({ data: payload });
   }
 
-  findAll() {
-    return this.prisma.project.findMany({ orderBy: { updatedAt: 'desc' } });
+  async findAll() {
+    const data = await this.prisma.project.findMany({
+      orderBy: { updatedAt: 'desc' },
+      include: { projectTag: { include: { tag: true } } },
+    });
+    return data.map(({ projectTag, ...item }) => ({
+      ...item,
+      tag: projectTag.map((t) => t.tag.name),
+    }));
   }
 }

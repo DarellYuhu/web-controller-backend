@@ -67,10 +67,13 @@ model Popular {
 }
 
 model Category {
-  id      String    @id @default(uuid())
-  name    String    @unique
-  slug    String    @unique
-  article Article[]
+  id   String @id @default(uuid())
+  name String @unique
+  slug String @unique
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  article   Article[]
 }
 
 model Author {

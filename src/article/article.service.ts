@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import slugify from 'slugify';
@@ -6,24 +6,32 @@ import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { convert } from 'html-to-text';
-import { Queue } from 'bullmq';
-import { InjectQueue } from '@nestjs/bullmq';
 import { TranscriberService } from 'src/transcriber/transcriber.service';
 import { shuffle } from 'lodash';
 import gis from 'async-g-i-s';
 import { MinioService } from 'src/minio/minio.service';
 import mime from 'mime';
+import { Prisma } from 'generated/prisma';
+import { AuthorService } from 'src/author/author.service';
+import { TagService } from 'src/tag/tag.service';
+import { ProjectService } from 'src/project/project.service';
+import { UpdateArticleDto } from './dto/update-article.dto';
+import { getRandomImgName } from 'src/utils';
 
 @Injectable()
 export class ArticleService {
+  private readonly logger = new Logger(ArticleService.name, {
+    timestamp: true,
+  });
   constructor(
     private readonly prisma: PrismaService,
     private readonly http: HttpService,
     private readonly scheduler: SchedulerRegistry,
     private readonly transcriber: TranscriberService,
     private readonly minio: MinioService,
-    @InjectQueue('article')
-    private readonly generateArticleQueue: Queue,
+    private readonly author: AuthorService,
+    private readonly tag: TagService,
+    private readonly project: ProjectService,
   ) {}
 
   create(payload: CreateArticleDto) {
@@ -31,30 +39,61 @@ export class ArticleService {
     return this.prisma.article.create({ data: { ...payload, slug } });
   }
 
-  createMany(payload: ParsedArticle[]) {
+  createMany(payload: Prisma.ArticleCreateManyInput[]) {
     return this.prisma.article.createMany({
-      data: payload.map((item) => ({
-        id: item.id.toString(),
-        title: item.title,
-        slug: slugify(item.title),
-      })),
+      data: payload,
     });
   }
 
   async findAll() {
     const data = await this.prisma.article.findMany({
-      include: { category: true, project: true },
+      include: { category: true, project: true, image: true },
+      orderBy: { updatedAt: 'desc' },
     });
-    return data.map((article) => ({
-      ...article,
-      category: article.category?.name,
-      project: article.project?.name,
-    }));
+    return await Promise.all(
+      data.map(async (article) => {
+        let bucket = '';
+        let path = '';
+        const match = article.image
+          ? article.image.path.match(/^\/([^/]+)\/(.+)$/)
+          : undefined;
+        if (match) {
+          bucket = match[1];
+          path = match[2];
+        }
+        return {
+          ...article,
+          imageUrl: article.image
+            ? await this.minio.getImageUrl(bucket, path)
+            : await this.minio.getImageUrl('media', 'news-img-placeholder.png'),
+          category: article.category?.name,
+          project: article.project?.name,
+        };
+      }),
+    );
+  }
+
+  findById(id: string) {
+    return this.prisma.article.findUnique({ where: { id } });
+  }
+
+  async update(id: string, { image, ...payload }: UpdateArticleDto) {
+    const name = getRandomImgName(image.mimetype);
+    const imageId = await this.minio.addFile({
+      name,
+      buffer: image.buffer,
+      contentType: image.mimetype,
+      path: `image/${name}`,
+    });
+    return this.prisma.article.update({
+      data: { ...payload, imageId },
+      where: { id },
+    });
   }
 
   @Cron(CronExpression.EVERY_5_SECONDS, { name: 'article-fetching' })
   async fetchScheduler() {
-    console.log('execute');
+    this.logger.verbose('Scheduler running...');
     this.scheduler.deleteCronJob('article-fetching');
     const { data } = await firstValueFrom(
       this.http.get<ArticleMetadata[]>('/page/list'),
@@ -69,9 +108,39 @@ export class ArticleService {
     );
     const { whitelisted, nonWhitelisted } =
       await this.getArticleContent(filteredArticle);
-    if (whitelisted.length > 0) await this.createMany(whitelisted);
-    if (nonWhitelisted.length > 0)
-      await this.generateContents(nonWhitelisted.slice(0, 2));
+    if (whitelisted.length > 0) {
+      this.logger.verbose('Inserting whitelisted...');
+      await this.createMany(
+        whitelisted.map((item) => ({
+          id: item.id.toString(),
+          title: item.title,
+          slug: slugify(item.title),
+        })),
+      );
+    }
+    if (nonWhitelisted.length > 0) {
+      const generatedArticles = await this.generateContents(
+        nonWhitelisted.slice(0, 2),
+      );
+      const authors = await this.author.findAll();
+      const tags = await this.tag.findAll();
+      const projects = await this.project.findAll();
+      this.logger.verbose('Inserting AICG...');
+      const payload = generatedArticles.map((item, idx) => ({
+        title: item.title,
+        slug: slugify(item.title),
+        id: item.id.toString(),
+        categoryId: item.category,
+        contents: item.news,
+        projectId: projects[idx % projects.length].id,
+        authorId: authors[idx % authors.length].id,
+        imageId: item.imageId,
+        tagId: tags[idx % tags.length].id,
+        imgPrompt: item.imgPrompt,
+      }));
+      await this.createMany(payload);
+    }
+    this.logger.verbose('Scheduler end...');
   }
 
   private async getArticleContent(payload: ArticleMetadata[]) {
@@ -107,7 +176,7 @@ export class ArticleService {
   }
 
   private async generateContents(payload: ParsedArticle[]) {
-    console.log(`generating contents (size: ${payload.length})...`);
+    this.logger.verbose(`Generating contents... (size: ${payload.length})`);
     const categories = await this.prisma.category.findMany({
       omit: { slug: true },
     });
@@ -123,7 +192,7 @@ export class ArticleService {
         ),
       })),
     );
-    console.log('...article generated');
+    this.logger.verbose('Contents Generated...');
     const filtered = await Promise.all(
       aiRes
         .filter((res) => res.status === 'fulfilled')
@@ -136,8 +205,7 @@ export class ArticleService {
           };
         }),
     );
-    console.log('image processing complete');
-    console.log(filtered);
+    this.logger.verbose('Images fetched...');
     return filtered;
   }
 
@@ -151,8 +219,9 @@ export class ArticleService {
       }),
     );
     const contentType = response.headers['content-type'] as string;
+
     if (!contentType.startsWith('image/')) {
-      throw new Error('Fail fetch image');
+      return undefined;
     }
 
     const random4Digit = Math.floor(1000 + Math.random() * 9000);

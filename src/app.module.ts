@@ -11,6 +11,10 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { BullModule } from '@nestjs/bullmq';
 import { TranscriberModule } from './transcriber/transcriber.module';
 import { MinioModule } from './minio/minio.module';
+import { AuthorModule } from './author/author.module';
+import { TagModule } from './tag/tag.module';
+import { WhitelistModule } from './whitelist/whitelist.module';
+import { CategoryModule } from './category/category.module';
 
 @Module({
   imports: [
@@ -28,6 +32,10 @@ import { MinioModule } from './minio/minio.module';
       },
     }),
     MinioModule,
+    AuthorModule,
+    TagModule,
+    WhitelistModule,
+    CategoryModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

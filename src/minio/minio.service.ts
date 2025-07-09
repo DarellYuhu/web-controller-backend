@@ -27,4 +27,8 @@ export class MinioService {
 
     return file.id;
   }
+
+  async getImageUrl(bucketName: string, path: string) {
+    return this.minio.presignedGetObject(bucketName, path);
+  }
 }
