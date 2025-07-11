@@ -19,8 +19,10 @@ export class MinioService {
     await this.minio.putObject('media', payload.path, payload.buffer);
     const file = await this.prisma.file.create({
       data: {
-        path: `/media/${payload.path}`,
+        path: payload.path,
         name: payload.name,
+        fullPath: `${payload.bucket}/${payload.path}`,
+        bucket: payload.bucket,
         contentType: payload.contentType,
       },
     });

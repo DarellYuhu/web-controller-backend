@@ -1,7 +1,6 @@
 import { IsOptional, IsString } from 'class-validator';
-import { Prisma } from 'generated/prisma';
 
-export class UpdateArticleDto implements Prisma.ArticleUncheckedUpdateInput {
+export class UpdateArticleDto {
   @IsString()
   @IsOptional()
   contents?: string;
@@ -18,10 +17,6 @@ export class UpdateArticleDto implements Prisma.ArticleUncheckedUpdateInput {
   @IsOptional()
   authorId?: string;
 
-  @IsString()
-  @IsOptional()
-  projectId?: string;
-
   // for type only
-  image: Express.Multer.File;
+  image?: Express.Multer.File;
 }

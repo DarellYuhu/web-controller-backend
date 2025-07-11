@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -23,8 +24,8 @@ export class ArticleController {
   }
 
   @Get()
-  findAll() {
-    return this.articleService.findAll();
+  findAll(@Query('projectId') projectId: string) {
+    return this.articleService.findAll({ projectId });
   }
 
   @Get(':id')
@@ -40,5 +41,12 @@ export class ArticleController {
     @UploadedFile() image: Express.Multer.File,
   ) {
     return this.articleService.update(id, { ...payload, image });
+  }
+
+  @Post('refresh')
+  refresh() {
+    // @ts-ignore
+    this.articleService.fetchScheduler();
+    return { message: 'scheduler is triggered' };
   }
 }

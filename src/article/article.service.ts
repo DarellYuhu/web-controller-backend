@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import slugify from 'slugify';
@@ -17,6 +17,7 @@ import { TagService } from 'src/tag/tag.service';
 import { ProjectService } from 'src/project/project.service';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { getRandomImgName } from 'src/utils';
+import axios from 'axios';
 
 @Injectable()
 export class ArticleService {
@@ -45,27 +46,23 @@ export class ArticleService {
     });
   }
 
-  async findAll() {
+  async findAll({ projectId }: { projectId?: string }) {
     const data = await this.prisma.article.findMany({
-      include: { category: true, project: true, image: true },
+      where: { projectId },
+      include: { category: true, project: true, image: true, author: true },
       orderBy: { updatedAt: 'desc' },
     });
     return await Promise.all(
       data.map(async (article) => {
-        let bucket = '';
-        let path = '';
-        const match = article.image
-          ? article.image.path.match(/^\/([^/]+)\/(.+)$/)
-          : undefined;
-        if (match) {
-          bucket = match[1];
-          path = match[2];
-        }
         return {
           ...article,
           imageUrl: article.image
-            ? await this.minio.getImageUrl(bucket, path)
+            ? await this.minio.getImageUrl(
+                article.image.bucket,
+                article.image.path,
+              )
             : await this.minio.getImageUrl('media', 'news-img-placeholder.png'),
+          author: article.author?.name,
           category: article.category?.name,
           project: article.project?.name,
         };
@@ -73,22 +70,55 @@ export class ArticleService {
     );
   }
 
-  findById(id: string) {
-    return this.prisma.article.findUnique({ where: { id } });
+  async findById(id: string) {
+    const article = await this.prisma.article
+      .findUniqueOrThrow({
+        where: { id },
+        include: { category: true, project: true, image: true, author: true },
+      })
+      .catch(() => {
+        throw new NotFoundException('Article not found');
+      });
+    return {
+      ...article,
+      imageUrl: article.image
+        ? await this.minio.getImageUrl(article.image.bucket, article.image.path)
+        : await this.minio.getImageUrl('media', 'news-img-placeholder.png'),
+      author: article.author?.name,
+      category: article.category?.name,
+      project: article.project?.name,
+    };
   }
 
   async update(id: string, { image, ...payload }: UpdateArticleDto) {
-    const name = getRandomImgName(image.mimetype);
-    const imageId = await this.minio.addFile({
-      name,
-      buffer: image.buffer,
-      contentType: image.mimetype,
-      path: `image/${name}`,
+    let imageId: string | undefined = undefined;
+    if (image) {
+      const name = getRandomImgName(image.mimetype);
+      imageId = await this.minio.addFile({
+        name,
+        buffer: image.buffer,
+        contentType: image.mimetype,
+        bucket: 'media',
+        path: `image/${name}`,
+      });
+    }
+    const project = await this.prisma.project.findMany({
+      where: { projectTag: { some: { tagId: payload.tagId } } },
+      orderBy: { updatedAt: 'desc' },
     });
-    return this.prisma.article.update({
-      data: { ...payload, imageId },
+    const updateArticle = this.prisma.article.update({
       where: { id },
+      data: {
+        ...payload,
+        projectId: project[0].id,
+        imageId,
+      },
     });
+    const updateProject = this.prisma.project.update({
+      where: { id: project[0].id },
+      data: { updatedAt: new Date() },
+    });
+    await this.prisma.$transaction([updateArticle, updateProject]);
   }
 
   @Cron(CronExpression.EVERY_5_SECONDS, { name: 'article-fetching' })
@@ -119,9 +149,7 @@ export class ArticleService {
       );
     }
     if (nonWhitelisted.length > 0) {
-      const generatedArticles = await this.generateContents(
-        nonWhitelisted.slice(0, 2),
-      );
+      const generatedArticles = await this.generateContents(nonWhitelisted);
       const authors = await this.author.findAll();
       const tags = await this.tag.findAll();
       const projects = await this.project.findAll();
@@ -210,44 +238,34 @@ export class ArticleService {
   }
 
   private async getImage(prompt: string) {
-    const result = await gis(prompt);
-    const randomSelect = shuffle(result)[0];
-    if (!randomSelect) return randomSelect;
-    const response = await firstValueFrom(
-      this.http.get<ArrayBuffer>(randomSelect.url, {
+    try {
+      const result = await gis(prompt);
+      const randomSelect = shuffle(result)[0];
+      if (!randomSelect) return randomSelect;
+      const response = await axios.get<ArrayBuffer>(randomSelect.url, {
         responseType: 'arraybuffer',
-      }),
-    );
-    const contentType = response.headers['content-type'] as string;
+      });
+      const contentType = response.headers['content-type'] as string;
 
-    if (!contentType.startsWith('image/')) {
+      if (!contentType.startsWith('image/')) {
+        return undefined;
+      }
+
+      const random4Digit = Math.floor(1000 + Math.random() * 9000);
+      const name = `image-${Date.now()}-${random4Digit}.${mime.getExtension(contentType)}`;
+      console.log('buffer pass');
+      const buffer = Buffer.from(response.data);
+      const id = await this.minio.addFile({
+        buffer,
+        contentType,
+        name,
+        path: `image/${name}`,
+        bucket: 'media',
+      });
+      return id;
+    } catch {
+      this.logger.error('Fail fetch image');
       return undefined;
     }
-
-    const random4Digit = Math.floor(1000 + Math.random() * 9000);
-    const name = `image-${Date.now()}-${random4Digit}.${mime.getExtension(contentType)}`;
-    const buffer = Buffer.from(response.data);
-    const id = await this.minio.addFile({
-      buffer,
-      contentType,
-      name,
-      path: `image/${name}`,
-    });
-    return id;
   }
-
-  // async searchFromGoogle(prompt: string) {
-  //   const { data } = await firstValueFrom(
-  //     this.http.get(`/customsearch/v1`, {
-  //       baseURL: 'https://www.googleapis.com',
-  //       params: {
-  //         key: process.env.IMAGE_SEARCH_API_KEY,
-  //         // searchType: 'image',
-  //         // imgSize: 'medium',
-  //         q: prompt,
-  //       },
-  //     }),
-  //   );
-  //   console.log(data);
-  // }
 }

@@ -22,7 +22,7 @@ Output Format (Give me only a JSON string, without any markdown formatting like 
 {
   "title": "Your news article title here",
   "snippet": "Your concise news summary here",
-  "news": "The full news article text here in MD format, with properly escaped quotation marks if any",
+  "news": "The full news article text here in MD format, with properly escaped quotation marks if any. Don't include the title in this field",
   "category": "same as the one above but unly give the id of that categories"
   "imgPrompt": "The image prompt"
 }

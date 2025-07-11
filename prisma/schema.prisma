@@ -14,6 +14,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  username  String   @unique
+  password  String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Article {
   id            String    @id @default(uuid())
   title         String
@@ -43,12 +53,16 @@ model Article {
 model File {
   id          String @id @default(uuid())
   name        String
+  bucket      String
   path        String
+  fullPath    String
   contentType String
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   Article   Article[]
+  icon      Project[] @relation(name: "icon")
+  logo      Project[] @relation(name: "logo")
 }
 
 model Highlight {
@@ -112,13 +126,19 @@ model Whitelist {
 }
 
 model Project {
-  id   String @unique @default(uuid())
-  name String @unique
-  port Int    @unique
+  id          String  @unique @default(uuid())
+  name        String
+  slug        String  @unique
+  port        Int     @unique
+  description String
+  iconId      String?
+  logoId      String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  icon       File?        @relation(fields: [iconId], references: [id], name: "icon")
+  logo       File?        @relation(fields: [logoId], references: [id], name: "logo")
   article    Article[]
   Deployment Deployment[]
   projectTag ProjectTag[]
@@ -133,4 +153,9 @@ model Deployment {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  ADMIN
+  USER
 }

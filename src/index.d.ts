@@ -25,6 +25,7 @@ type GeneratedArticle = {
 type AddImagePayload = {
   name: string;
   path: string;
+  bucket: string;
   contentType: string;
   buffer: Buffer;
 };

@@ -27,81 +27,83 @@ async function main() {
     'news-img-placeholder.png',
     'assets/news-img-placeholder.png',
   );
-  await prisma.$transaction(async (db) => {
-    const tagsData = await db.tag.createManyAndReturn({
-      data: tags.map((item) => ({ name: item })),
-      skipDuplicates: true,
-    });
-    const authorsData = await db.author.createManyAndReturn({
-      data: Array.from({ length: 10 }).map(() => ({
-        name: faker.person.fullName(),
-      })),
-    });
-    await db.whitelist.createMany({
-      data: whitelist.map((item) => ({ name: item })),
-      skipDuplicates: true,
-    });
-    const project = await db.project.create({
-      data: {
-        name: 'wayland_project',
-        port: 3009,
-        projectTag: {
-          createMany: { data: tagsData.map((item) => ({ tagId: item.id })) },
-        },
-      },
-    });
-    const category = await db.category.createManyAndReturn({
-      data: CATEGORY_LIST.map((item) => ({
-        name: item,
-        slug: slugify(item),
-      })),
-    });
-    const article = await db.article.createManyAndReturn({
-      data: Array.from({ length: 50 }).map(
-        (): Prisma.ArticleCreateManyInput => {
-          const title = faker.lorem.sentence();
-          return {
-            tagId: faker.helpers.arrayElement(tagsData.map((item) => item.id)),
-            authorId: faker.helpers.arrayElement(
-              authorsData.map((item) => item.id),
-            ),
-            contents: faker.lorem.paragraphs(4),
-            slug: slugify(title),
-            datePublished: faker.date.past(),
-            title,
-            projectId: project.id,
-            categoryId: faker.helpers.arrayElement(
-              category.map((item) => item.id),
-            ),
-          };
-        },
-      ),
-    });
-    await db.highlight.createMany({
-      data: faker.helpers.arrayElements(
-        article.map((item) => ({
-          articleId: item.id,
-        })),
-        4,
-      ),
-    });
-    await db.topPick.createMany({
-      data: faker.helpers.arrayElements(
-        article.map((item) => ({
-          articleId: item.id,
-        })),
-        4,
-      ),
-    });
-    await db.popular.createMany({
-      data: faker.helpers.arrayElements(
-        article.map((item) => ({
-          articleId: item.id,
-        })),
-        4,
-      ),
-    });
-  });
+  // await prisma.$transaction(async (db) => {
+  //   const tagsData = await db.tag.createManyAndReturn({
+  //     data: tags.map((item) => ({ name: item })),
+  //     skipDuplicates: true,
+  //   });
+  //   const authorsData = await db.author.createManyAndReturn({
+  //     data: Array.from({ length: 10 }).map(() => ({
+  //       name: faker.person.fullName(),
+  //     })),
+  //   });
+  //   await db.whitelist.createMany({
+  //     data: whitelist.map((item) => ({ name: item })),
+  //     skipDuplicates: true,
+  //   });
+  //   const project = await db.project.create({
+  //     data: {
+  //       name: 'Goood Website',
+  //       slug: slugify('Good Website', { lower: true, strict: true }),
+  //       description: 'description for the website',
+  //       port: 3009,
+  //       projectTag: {
+  //         createMany: { data: tagsData.map((item) => ({ tagId: item.id })) },
+  //       },
+  //     },
+  //   });
+  //   const category = await db.category.createManyAndReturn({
+  //     data: CATEGORY_LIST.map((item) => ({
+  //       name: item,
+  //       slug: slugify(item),
+  //     })),
+  //   });
+  //   const article = await db.article.createManyAndReturn({
+  //     data: Array.from({ length: 50 }).map(
+  //       (): Prisma.ArticleCreateManyInput => {
+  //         const title = faker.lorem.sentence();
+  //         return {
+  //           tagId: faker.helpers.arrayElement(tagsData.map((item) => item.id)),
+  //           authorId: faker.helpers.arrayElement(
+  //             authorsData.map((item) => item.id),
+  //           ),
+  //           contents: faker.lorem.paragraphs(4),
+  //           slug: slugify(title),
+  //           datePublished: faker.date.past(),
+  //           title,
+  //           projectId: project.id,
+  //           categoryId: faker.helpers.arrayElement(
+  //             category.map((item) => item.id),
+  //           ),
+  //         };
+  //       },
+  //     ),
+  //   });
+  //   await db.highlight.createMany({
+  //     data: faker.helpers.arrayElements(
+  //       article.map((item) => ({
+  //         articleId: item.id,
+  //       })),
+  //       4,
+  //     ),
+  //   });
+  //   await db.topPick.createMany({
+  //     data: faker.helpers.arrayElements(
+  //       article.map((item) => ({
+  //         articleId: item.id,
+  //       })),
+  //       4,
+  //     ),
+  //   });
+  //   await db.popular.createMany({
+  //     data: faker.helpers.arrayElements(
+  //       article.map((item) => ({
+  //         articleId: item.id,
+  //       })),
+  //       4,
+  //     ),
+  //   });
+  // });
 }
 
 main().catch((e) => {

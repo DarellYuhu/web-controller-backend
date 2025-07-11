@@ -1,4 +1,11 @@
-import { Body, ConflictException, Controller, Get, Post } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
@@ -24,5 +31,10 @@ export class ProjectController {
   @Get()
   findAll() {
     return this.projectService.findAll();
+  }
+
+  @Get(':id')
+  findById(@Param('id') id: string) {
+    return this.projectService.findById(id);
   }
 }

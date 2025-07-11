@@ -15,10 +15,14 @@ import { AuthorModule } from './author/author.module';
 import { TagModule } from './tag/tag.module';
 import { WhitelistModule } from './whitelist/whitelist.module';
 import { CategoryModule } from './category/category.module';
+import { UserModule } from './user/user.module';
+import { AuthModule } from './auth/auth.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
     ArticleModule,
+    ConfigModule.forRoot({ ignoreEnvFile: true }),
     PrismaModule,
     GeneratorModule,
     DockerModule,
@@ -36,6 +40,8 @@ import { CategoryModule } from './category/category.module';
     TagModule,
     WhitelistModule,
     CategoryModule,
+    UserModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
