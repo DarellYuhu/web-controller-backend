@@ -43,7 +43,7 @@ Input Text:
       baseURL: process.env.TRANSCRIBE_BASE_URL,
     });
     const response = await client.chat.completions.create({
-      model: 'claude-4-sonnet-20250514',
+      model: 'gpt-4.1-mini',
       messages: [{ role: 'user', content: prompt }],
     });
 
