@@ -1,21 +1,25 @@
 # Use the official Node.js image as the base image
-FROM node:22-alpine
+FROM node:22-alpine AS base
 
-# Set the working directory inside the container
-WORKDIR /usr/src/app
-
-# Copy package.json and package-lock.json to the working directory
+FROM base AS deps
+WORKDIR /app
 COPY package*.json ./
-
-# Install the application dependencies
 RUN npm install
 
-# Copy the rest of the application files
+FROM base  AS builder
+WORKDIR /app
 COPY . .
+COPY --from=deps /app/node_modules ./node_modules
+RUN npx prisma generate \
+  && npm run build
 
-# Build the NestJS application
-RUN npx prisma generate
-RUN npm run build
+FROM base AS runner
+COPY package*.json ./
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/generated ./generated
+RUN npm ci --production
+
 
 # Expose the application port
 EXPOSE 2000

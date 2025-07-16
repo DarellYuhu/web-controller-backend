@@ -24,8 +24,14 @@ export class ArticleController {
   }
 
   @Get()
-  findAll(@Query('projectId') projectId: string) {
-    return this.articleService.findAll({ projectId });
+  findAll(
+    @Query('project_id') projectId: string,
+    @Query('section_type') sectionType: string,
+  ) {
+    return this.articleService.findAll({
+      projectId,
+      sectionType,
+    });
   }
 
   @Get(':id')

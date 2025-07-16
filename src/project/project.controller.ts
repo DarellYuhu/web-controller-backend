@@ -4,10 +4,12 @@ import {
   Controller,
   Get,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
 
 @Controller('projects')
@@ -36,5 +38,10 @@ export class ProjectController {
   @Get(':id')
   findById(@Param('id') id: string) {
     return this.projectService.findById(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() payload: UpdateProjectDto) {
+    return this.projectService.update(id, payload);
   }
 }

@@ -85,18 +85,18 @@ export class GeneratorService {
     try {
       const articles = await this.prisma.article.findMany({
         where: { projectId },
-        include: { highlight: true, topPick: true, popular: true },
+        include: { Section: true },
       });
       const categories = await this.prisma.category.findMany();
-      const highlights = articles
-        .filter((item) => item.highlight)
-        .map((item) => ({ articleId: item.id }));
-      const topPicks = articles
-        .filter((item) => item.topPick)
-        .map((item) => ({ articleId: item.id }));
-      const populars = articles
-        .filter((item) => item.popular)
-        .map((item) => ({ articleId: item.id }));
+      // const highlights = articles
+      //   .filter((item) => item.Section?.type === 'Highlight')
+      //   .map((item) => ({ articleId: item.id }));
+      // const topPicks = articles
+      //   .filter((item) => item.topPick)
+      //   .map((item) => ({ articleId: item.id }));
+      // const populars = articles
+      //   .filter((item) => item.popular)
+      // .map((item) => ({ articleId: item.id }));
       await execa('npm', ['i'], { cwd: dir });
       await execa(
         'npx',
@@ -115,9 +115,9 @@ export class GeneratorService {
           FROM_CONTROLLER: 'true',
           CATEGORIES_DATA: JSON.stringify(categories),
           ARTICLES_DATA: JSON.stringify(articles),
-          HIGHLIGHTS_DATA: JSON.stringify(highlights),
-          TOPPICKS_DATA: JSON.stringify(topPicks),
-          POPULARS_DATA: JSON.stringify(populars),
+          // HIGHLIGHTS_DATA: JSON.stringify(highlights),
+          // TOPPICKS_DATA: JSON.stringify(topPicks),
+          // POPULARS_DATA: JSON.stringify(populars),
         },
       });
     } catch (err) {

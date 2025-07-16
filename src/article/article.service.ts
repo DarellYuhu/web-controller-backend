@@ -11,7 +11,7 @@ import { shuffle } from 'lodash';
 import gis from 'async-g-i-s';
 import { MinioService } from 'src/minio/minio.service';
 import mime from 'mime';
-import { Prisma } from 'generated/prisma';
+import { Prisma, SectionType } from 'generated/prisma';
 import { AuthorService } from 'src/author/author.service';
 import { TagService } from 'src/tag/tag.service';
 import { ProjectService } from 'src/project/project.service';
@@ -43,12 +43,23 @@ export class ArticleService {
   createMany(payload: Prisma.ArticleCreateManyInput[]) {
     return this.prisma.article.createMany({
       data: payload,
+      skipDuplicates: true,
     });
   }
 
-  async findAll({ projectId }: { projectId?: string }) {
+  async findAll({
+    projectId,
+    sectionType,
+  }: {
+    projectId?: string;
+    sectionType?: string;
+  }) {
+    const query: Prisma.ArticleWhereInput = {
+      projectId,
+    };
+    if (sectionType) query.Section = { type: sectionType as SectionType };
     const data = await this.prisma.article.findMany({
-      where: { projectId },
+      where: query,
       include: { category: true, project: true, image: true, author: true },
       orderBy: { updatedAt: 'desc' },
     });

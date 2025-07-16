@@ -1,7 +1,9 @@
+import slugify from 'slugify';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
-import slugify from 'slugify';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { Prisma } from 'generated/prisma';
 
 @Injectable()
 export class ProjectService {
@@ -41,5 +43,15 @@ export class ProjectService {
       ...item,
       projectTag: projectTag.map((t) => t.tag.name),
     }));
+  }
+
+  async update(id: string, payload: UpdateProjectDto) {
+    const data: Prisma.ProjectUpdateInput = {};
+    if (payload.newSection)
+      data.Section = {
+        createMany: { data: payload.newSection, skipDuplicates: true },
+      };
+
+    return this.prisma.project.update({ where: { id }, data });
   }
 }

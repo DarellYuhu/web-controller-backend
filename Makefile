@@ -10,6 +10,12 @@ db-reset:
 db-seed:
 	dotenv -e ${DEVELOPMENT_ENV_PATH} -- npx prisma db seed
 
+db-generate:
+	bunx prisma generate
+
+db-deploy:
+	bunx prisma migrate deploy
+
 compose-up:
 	docker compose -f ${DOCKER_COMPOSE_PATH} up -d
 
