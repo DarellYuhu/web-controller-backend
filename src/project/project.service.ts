@@ -1,9 +1,10 @@
-import slugify from 'slugify';
+import { slugify } from '@/utils';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Prisma } from 'generated/prisma';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ProjectService {
@@ -48,7 +49,7 @@ export class ProjectService {
   async update(id: string, payload: UpdateProjectDto) {
     const data: Prisma.ProjectUpdateInput = {};
     if (payload.newSection)
-      data.Section = {
+      data.section = {
         createMany: { data: payload.newSection, skipDuplicates: true },
       };
 

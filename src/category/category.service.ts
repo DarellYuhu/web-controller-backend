@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import slugify from 'slugify';
+import { slugify } from '@/utils';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()

@@ -132,10 +132,10 @@ export class ArticleService {
     await this.prisma.$transaction([updateArticle, updateProject]);
   }
 
-  @Cron(CronExpression.EVERY_5_SECONDS, { name: 'article-fetching' })
+  @Cron(CronExpression.EVERY_HOUR)
   async fetchScheduler() {
     this.logger.verbose('Scheduler running...');
-    this.scheduler.deleteCronJob('article-fetching');
+    // this.scheduler.deleteCronJob('article-fetching');
     const { data } = await firstValueFrom(
       this.http.get<ArticleMetadata[]>('/page/list'),
     );

@@ -22,5 +22,5 @@
       "@/*": ["./src/*"]
     }
   },
-  "exclude": ["assets"]
+  "exclude": ["assets", "tmp"]
 }

@@ -1,10 +1,11 @@
 # Use the official Node.js image as the base image
 FROM node:22-alpine AS base
+RUN apk add --no-cache git docker-cli
 
 FROM base AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 FROM base  AS builder
 WORKDIR /app
@@ -18,7 +19,7 @@ COPY package*.json ./
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/generated ./generated
-RUN npm ci --production
+RUN npm ci --production --legacy-peer-deps
 
 
 # Expose the application port

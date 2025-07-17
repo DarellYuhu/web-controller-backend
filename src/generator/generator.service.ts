@@ -1,30 +1,46 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { execa } from 'execa';
 import Docker from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
+import {
+  articleSchema,
+  categorySchema,
+  sectionSchema,
+} from './generator.schema';
+import { writeFile } from 'fs/promises';
+import { z } from 'zod/v4';
+import { MinioService } from '@/minio/minio.service';
 
 @Injectable()
 export class GeneratorService {
   private readonly docker: Docker;
-  constructor(private readonly prisma: PrismaService) {
+  private readonly TEMPLATE_REPOSITORY: string;
+  private readonly logger = new Logger(GeneratorService.name, {
+    timestamp: true,
+  });
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly minio: MinioService,
+  ) {
     this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+    this.TEMPLATE_REPOSITORY = process.env.TEMPLATE_REPOSITORY ?? '';
   }
 
   async generate(projectId: string) {
+    this.logger.log('Generating web: ', projectId);
     const project = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
       include: { Deployment: { orderBy: { createdAt: 'desc' }, take: 1 } },
     });
     const lastDp = project.Deployment[0];
     const targetFldr = './tmp/web-template';
-    const name = project.name;
+    const name = project.slug;
     await execa('rm', ['-rf', targetFldr]);
-    await execa('git', [
-      'clone',
-      // 'https://github.com/DarellYuhu/web-template.git',
-      '/home/darell/Projects/web-generator/web-template',
-      targetFldr,
-    ]);
+    await execa('git', ['clone', this.TEMPLATE_REPOSITORY, targetFldr]);
     await this.buildImg(projectId, targetFldr, name);
     if (lastDp && lastDp.status === 'running') {
       await this.rmDeploy(lastDp.id);
@@ -40,9 +56,11 @@ export class GeneratorService {
         projectId: project.id,
       },
     });
+    this.logger.log('Web generated successfully');
   }
 
   private async rmDeploy(dpId: string) {
+    this.logger.log('Remove Deployment');
     try {
       const container = this.docker.getContainer(dpId);
       const State = (await container.inspect()).State;
@@ -61,13 +79,16 @@ export class GeneratorService {
   }
 
   private async deployCtr(imgPath: string, imgName: string, port: number) {
+    this.logger.log('Deploying container');
     try {
       await this.docker.loadImage(imgPath);
       const container = await this.docker.createContainer({
         Image: imgName,
         name: `${imgName}-ctr`,
         HostConfig: {
-          PortBindings: { '3000/tcp': [{ HostPort: `${port}/tcp` }] },
+          PortBindings: {
+            '3000/tcp': [{ HostPort: `${port}`, HostIp: '127.0.0.01' }],
+          },
         },
       });
       await container.start();
@@ -82,21 +103,75 @@ export class GeneratorService {
   }
 
   private async seedData(projectId: string, dir: string) {
+    this.logger.log('Seeding data');
     try {
-      const articles = await this.prisma.article.findMany({
+      const rawArticles = await this.prisma.article.findMany({
         where: { projectId },
-        include: { Section: true },
+        include: { Section: true, author: true, image: true },
+        orderBy: { createdAt: 'desc' },
       });
-      const categories = await this.prisma.category.findMany();
-      // const highlights = articles
-      //   .filter((item) => item.Section?.type === 'Highlight')
-      //   .map((item) => ({ articleId: item.id }));
-      // const topPicks = articles
-      //   .filter((item) => item.topPick)
-      //   .map((item) => ({ articleId: item.id }));
-      // const populars = articles
-      //   .filter((item) => item.popular)
-      // .map((item) => ({ articleId: item.id }));
+      const rawCategories = await this.prisma.category.findMany();
+      const articles = await Promise.all(
+        rawArticles.map(async (itm) => {
+          if (itm.image)
+            await this.minio.copyObjectToLocal(
+              itm.image.fullPath,
+              dir.concat(`/public/assets/${itm.image.name}`),
+            );
+          return {
+            id: itm.id,
+            title: itm.title,
+            contents: itm.contents,
+            categoryId: itm.categoryId,
+            authorName: itm.author?.name,
+            datePublished:
+              itm.datePublished?.toISOString() ?? new Date().toISOString(),
+            slug: itm.slug,
+            imageUrl: itm.image
+              ? `/assets/${itm.image.name}`
+              : '/assets/news-img-placeholder.png',
+          };
+        }),
+      );
+      const highlights = rawArticles
+        .filter((item) => item.Section?.type === 'Highlight')
+        .map((item) => ({ articleId: item.id }));
+      const topPicks = rawArticles
+        .filter((item) => item.Section?.type === 'TopPick')
+        .map((item) => ({ articleId: item.id }));
+      const populars = rawArticles
+        .filter((item) => item.Section?.type === 'Popular')
+        .map((item) => ({ articleId: item.id }));
+      const articlePath = await this.writeTmpData(
+        dir,
+        'article-data',
+        articles,
+        articleSchema,
+      );
+      const categoryPath = await this.writeTmpData(
+        dir,
+        'category-data',
+        rawCategories,
+        categorySchema,
+      );
+      const highlightPath = await this.writeTmpData(
+        dir,
+        'highlight-data',
+        highlights,
+        sectionSchema,
+      );
+      const popularPath = await this.writeTmpData(
+        dir,
+        'popular-data',
+        populars,
+        sectionSchema,
+      );
+      const topPickPath = await this.writeTmpData(
+        dir,
+        'top-pick-data',
+        topPicks,
+        sectionSchema,
+      );
       await execa('npm', ['i'], { cwd: dir });
       await execa(
         'npx',
@@ -113,11 +188,11 @@ export class GeneratorService {
         env: {
           DATABASE_URL: 'file:./prod.db',
           FROM_CONTROLLER: 'true',
-          CATEGORIES_DATA: JSON.stringify(categories),
-          ARTICLES_DATA: JSON.stringify(articles),
-          // HIGHLIGHTS_DATA: JSON.stringify(highlights),
-          // TOPPICKS_DATA: JSON.stringify(topPicks),
-          // POPULARS_DATA: JSON.stringify(populars),
+          CATEGORIES_DATA: categoryPath,
+          ARTICLES_DATA: articlePath,
+          HIGHLIGHTS_DATA: highlightPath,
+          TOPPICKS_DATA: topPickPath,
+          POPULARS_DATA: popularPath,
         },
       });
     } catch (err) {
@@ -126,10 +201,23 @@ export class GeneratorService {
     }
   }
 
-  async buildImg(projectId: string, dir: string, name: string) {
+  private async writeTmpData(
+    dir: string,
+    name: string,
+    data: unknown,
+    schema: z.ZodType,
+  ) {
+    schema.parse(data);
+    const filename = name.concat('.json');
+    await writeFile(dir.concat('/', filename), JSON.stringify(data));
+    return filename;
+  }
+
+  private async buildImg(projectId: string, dir: string, name: string) {
     try {
       await this.seedData(projectId, dir);
-      await execa('bash', ['-c', 'echo "DATABASE_URL=file:./prod.db" > .env'], {
+      this.logger.log('Build img');
+      await execa('sh', ['-c', 'echo "DATABASE_URL=file:./prod.db" > .env'], {
         cwd: dir,
       });
       await execa('docker', ['build', '-t', name, '.'], {
