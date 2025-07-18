@@ -27,10 +27,12 @@ export class ArticleController {
   findAll(
     @Query('project_id') projectId: string,
     @Query('section_type') sectionType: string,
+    @Query('cursor') cursor: { id: string; createdAt: string },
   ) {
     return this.articleService.findAll({
       projectId,
       sectionType,
+      cursor,
     });
   }
 

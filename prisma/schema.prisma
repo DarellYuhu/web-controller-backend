@@ -46,6 +46,8 @@ model Article {
   project  Project?  @relation(fields: [projectId], references: [id])
   category Category? @relation(fields: [categoryId], references: [id])
   Section  Section?
+
+  @@unique([createdAt, id])
 }
 
 model File {

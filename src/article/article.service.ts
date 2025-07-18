@@ -50,20 +50,33 @@ export class ArticleService {
   async findAll({
     projectId,
     sectionType,
+    cursor,
   }: {
     projectId?: string;
     sectionType?: string;
+    cursor?: { id: string; createdAt: string };
   }) {
     const query: Prisma.ArticleWhereInput = {
       projectId,
     };
     if (sectionType) query.Section = { type: sectionType as SectionType };
+    const isCursored = cursor && cursor?.id !== '';
     const data = await this.prisma.article.findMany({
       where: query,
       include: { category: true, project: true, image: true, author: true },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      ...(isCursored && {
+        skip: 1,
+        cursor: {
+          createdAt_id: {
+            createdAt: cursor.createdAt,
+            id: cursor.id,
+          },
+        },
+      }),
+      take: 10,
     });
-    return await Promise.all(
+    const normalized = await Promise.all(
       data.map(async (article) => {
         return {
           ...article,
@@ -79,6 +92,11 @@ export class ArticleService {
         };
       }),
     );
+    const lastItm = normalized[normalized.length - 1];
+    return {
+      data: normalized,
+      cursor: { id: lastItm.id, createdAt: lastItm.createdAt },
+    };
   }
 
   async findById(id: string) {

@@ -87,7 +87,7 @@ export class GeneratorService {
         name: `${imgName}-ctr`,
         HostConfig: {
           PortBindings: {
-            '3000/tcp': [{ HostPort: `${port}`, HostIp: '127.0.0.01' }],
+            '3000/tcp': [{ HostPort: `${port}`, HostIp: '127.0.0.1' }],
           },
         },
       });
