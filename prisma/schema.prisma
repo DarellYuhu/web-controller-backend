@@ -117,10 +117,29 @@ model Tag {
 }
 
 model Whitelist {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String            @id @default(uuid())
+  name            String            @unique
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  whitelistPrompt WhitelistPrompt[]
+}
+
+model WhitelistPrompt {
+  whitelistId String
+  whitelist   Whitelist @relation(fields: [whitelistId], references: [id])
+  promptId    String
+  prompt      Prompt    @relation(fields: [promptId], references: [id])
+
+  @@unique([whitelistId, promptId])
+}
+
+model Prompt {
+  id   String @id @default(uuid())
+  text String
+
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  whitelistPrompt WhitelistPrompt[]
 }
 
 model Project {

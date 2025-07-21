@@ -18,6 +18,7 @@ import { CategoryModule } from './category/category.module';
 import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
+import { PromptModule } from './prompt/prompt.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { ConfigModule } from '@nestjs/config';
     CategoryModule,
     UserModule,
     AuthModule,
+    PromptModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
