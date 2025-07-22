@@ -129,6 +129,7 @@ model WhitelistPrompt {
   whitelist   Whitelist @relation(fields: [whitelistId], references: [id])
   promptId    String
   prompt      Prompt    @relation(fields: [promptId], references: [id])
+  score       Int       @default(0)
 
   @@unique([whitelistId, promptId])
 }

@@ -4,7 +4,6 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Prisma } from 'generated/prisma';
-import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class ProjectService {

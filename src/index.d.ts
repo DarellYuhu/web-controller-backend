@@ -12,6 +12,7 @@ type ParsedArticle = {
   date: string;
   title: string;
   content: string;
+  prompt?: string;
 };
 
 type GeneratedArticle = {

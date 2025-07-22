@@ -3,7 +3,10 @@ import OpenAI from 'openai';
 
 @Injectable()
 export class TranscriberService {
-  private DEFAULT_PROMPT = `Paraphrase the following text into a professionally written news article. Your task is to rewrite all content in your own words to avoid plagiarism. Change the structure and wording as needed for clarity, conciseness, and a formal tone.
+  private DEFAULT_PROMPT = `Paraphrase the following text into a professionally written news article. Your task is to rewrite all content in your own words to avoid plagiarism. Change the structure and wording as needed for clarity, conciseness, and a formal tone.`;
+
+  private PROMPT_TEMPLATE = `
+{input_prompt}
 
 Your output must include:
 
@@ -33,18 +36,19 @@ Input Text:
   async generateWithPrompt(
     transcript: string,
     categories: string,
-    template: string = this.DEFAULT_PROMPT,
+    prompt: string = this.DEFAULT_PROMPT,
   ) {
-    const prompt = template
-      .replace('{input_text}', transcript)
-      .replace('{input_categories}', categories);
+    let content = this.PROMPT_TEMPLATE.replace('{input_text}', transcript)
+      .replace('{input_categories}', categories)
+      .replace('{input_prompt}', this.DEFAULT_PROMPT);
+    if (prompt) content = content.replace('{input_prompt}', prompt);
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       baseURL: process.env.TRANSCRIBE_BASE_URL,
     });
     const response = await client.chat.completions.create({
       model: 'gpt-4.1-mini',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{ role: 'user', content }],
     });
 
     const data = response.choices[0].message.content;

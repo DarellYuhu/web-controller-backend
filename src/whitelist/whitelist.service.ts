@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AddPromptsDto } from './dto/add-prompts.dto';
+import { UpdatePromptsDto } from './dto/update-prompts.dto';
 
 @Injectable()
 export class WhitelistService {
@@ -19,7 +20,10 @@ export class WhitelistService {
     });
     return data.map(({ whitelistPrompt, ...rest }) => ({
       ...rest,
-      prompts: whitelistPrompt.map((list) => list.prompt),
+      prompts: whitelistPrompt.map((list) => ({
+        ...list.prompt,
+        score: list.score,
+      })),
     }));
   }
 
@@ -28,5 +32,23 @@ export class WhitelistService {
       data: payload.data.map((promptId) => ({ whitelistId, promptId })),
       skipDuplicates: true,
     });
+  }
+
+  updatePrompts(whitelistId: string, payload: UpdatePromptsDto) {
+    return this.prisma.$transaction(
+      payload.data.map(({ promptId, score }) =>
+        this.prisma.whitelistPrompt.update({
+          where: {
+            whitelistId_promptId: {
+              whitelistId,
+              promptId,
+            },
+          },
+          data: {
+            score,
+          },
+        }),
+      ),
+    );
   }
 }

@@ -3,11 +3,11 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import slugify from 'slugify';
 import { HttpService } from '@nestjs/axios';
-import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { convert } from 'html-to-text';
 import { TranscriberService } from 'src/transcriber/transcriber.service';
-import { shuffle } from 'lodash';
+import { sample, shuffle } from 'lodash';
 import gis from 'async-g-i-s';
 import { MinioService } from 'src/minio/minio.service';
 import mime from 'mime';
@@ -27,7 +27,6 @@ export class ArticleService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly http: HttpService,
-    private readonly scheduler: SchedulerRegistry,
     private readonly transcriber: TranscriberService,
     private readonly minio: MinioService,
     private readonly author: AuthorService,
@@ -167,22 +166,29 @@ export class ArticleService {
     );
     const { whitelisted, nonWhitelisted } =
       await this.getArticleContent(filteredArticle);
+    const authors = await this.author.findAll();
+
     if (whitelisted.length > 0) {
-      this.logger.verbose('Inserting whitelisted...');
-      await this.createMany(
-        whitelisted.map((item) => ({
-          id: item.id.toString(),
-          title: item.title,
-          slug: slugify(item.title),
-        })),
-      );
+      const generatedArticles = await this.generateContents(whitelisted);
+      this.logger.verbose('Inserting AICG... (Whitelisted)');
+      const payload = generatedArticles.map((item, idx) => ({
+        title: item.title,
+        slug: slugify(item.title),
+        id: item.id.toString(),
+        categoryId: item.category,
+        contents: item.news,
+        authorId: authors[idx % authors.length].id,
+        imageId: item.imageId,
+        imgPrompt: item.imgPrompt,
+      }));
+      await this.createMany(payload);
     }
+
     if (nonWhitelisted.length > 0) {
       const generatedArticles = await this.generateContents(nonWhitelisted);
-      const authors = await this.author.findAll();
       const tags = await this.tag.findAll();
       const projects = await this.project.findAll();
-      this.logger.verbose('Inserting AICG...');
+      this.logger.verbose('Inserting AICG... (Non-whitelisted)');
       const payload = generatedArticles.map((item, idx) => ({
         title: item.title,
         slug: slugify(item.title),
@@ -219,14 +225,19 @@ export class ArticleService {
     const fulfilled = result
       .filter((res) => res.status === 'fulfilled')
       .map((item) => item.value);
-    const whitelistFilter = await this.prisma.whitelist.findMany();
+    const whitelistFilter = await this.prisma.whitelist.findMany({
+      where: { whitelistPrompt: { some: {} } },
+      include: { whitelistPrompt: { include: { prompt: true } } },
+    });
     const whitelisted: ParsedArticle[] = [];
     const nonWhitelisted: ParsedArticle[] = [];
     fulfilled.forEach((item) => {
-      const isWhiteListed = whitelistFilter.some(({ name }) =>
+      const isWhiteListed = shuffle(whitelistFilter).find(({ name }) =>
         item.content.toLowerCase().includes(name.toLowerCase()),
       );
-      if (isWhiteListed) whitelisted.push(item);
+      const prompt = sample(isWhiteListed?.whitelistPrompt);
+      if (isWhiteListed)
+        whitelisted.push({ ...item, prompt: prompt?.prompt.text });
       else nonWhitelisted.push(item);
     });
     return { whitelisted, nonWhitelisted };
@@ -246,6 +257,7 @@ export class ArticleService {
         generated: await this.transcriber.generateWithPrompt(
           item.content,
           stringifyCategories,
+          item.prompt,
         ),
       })),
     );

@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import { WhitelistService } from './whitelist.service';
 import { MetadataCreateDto } from 'src/dtos/metadata-create-dto';
 import { AddPromptsDto } from './dto/add-prompts.dto';
+import { UpdatePromptsDto } from './dto/update-prompts.dto';
 
 @Controller('whitelist')
 export class WhitelistController {
@@ -22,5 +23,12 @@ export class WhitelistController {
     @Body() payload: AddPromptsDto,
   ) {
     return this.whitelistService.addPrompts(id, payload);
+  }
+
+  @Patch(':id/prompts') updatePrompts(
+    @Param('id') id: string,
+    @Body() payload: UpdatePromptsDto,
+  ) {
+    return this.whitelistService.updatePrompts(id, payload);
   }
 }
