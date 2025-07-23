@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { Prisma } from 'generated/prisma';
 import { Omit } from 'generated/prisma/runtime/library';
 
@@ -6,24 +6,12 @@ export class CreateArticleDto
   implements Omit<Prisma.ArticleUncheckedCreateInput, 'slug'>
 {
   @IsString()
-  @IsOptional()
-  id?: string;
-
-  @IsString()
-  @IsNotEmpty()
-  contents: string;
-
-  @IsString()
   @IsNotEmpty()
   title: string;
 
   @IsString()
   @IsNotEmpty()
-  authorName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  imageUrl: string;
+  contents: string;
 
   @IsString()
   @IsNotEmpty()
@@ -32,4 +20,11 @@ export class CreateArticleDto
   @IsString()
   @IsNotEmpty()
   tagId: string;
+
+  @IsString()
+  @IsNotEmpty()
+  categoryId: string;
+
+  // additional for type checking
+  image: Express.Multer.File;
 }

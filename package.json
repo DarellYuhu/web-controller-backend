@@ -47,6 +47,7 @@
     "date-fns": "^4.1.0",
     "dockerode": "^4.0.7",
     "execa": "^9.6.0",
+    "file-type": "^21.0.0",
     "html-to-text": "^9.0.5",
     "lodash": "^4.17.21",
     "mime": "^4.0.7",

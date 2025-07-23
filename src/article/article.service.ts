@@ -1,4 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import slugify from 'slugify';
@@ -18,6 +23,7 @@ import { ProjectService } from 'src/project/project.service';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { getRandomImgName, weightedRandom } from 'src/utils';
 import axios from 'axios';
+import { fileTypeFromBuffer } from 'file-type';
 import { PublishArticleDto } from './dto/publish-article.dto';
 
 @Injectable()
@@ -36,9 +42,25 @@ export class ArticleService {
     private readonly scheduler: SchedulerRegistry,
   ) {}
 
-  create(payload: CreateArticleDto) {
+  async create({ image, ...payload }: CreateArticleDto) {
     const slug = slugify(payload.title);
-    return this.prisma.article.create({ data: { ...payload, slug } });
+    const data: Prisma.ArticleUncheckedCreateInput = { ...payload, slug };
+    if (image) {
+      const mimeType = await fileTypeFromBuffer(image.buffer);
+      if (!mimeType) throw new BadRequestException('Image file not recognized');
+      const random4Digit = Math.floor(1000 + Math.random() * 9000);
+      const name = `image-${Date.now()}-${random4Digit}.${mimeType ? mime.getExtension(mimeType.ext) : ''}`;
+      const imageId = await this.minio.addFile({
+        bucket: 'media',
+        buffer: image.buffer,
+        contentType: mimeType?.mime,
+        name,
+        path: `image/${name}`,
+      });
+      data.imageId = imageId;
+    }
+
+    return this.prisma.article.create({ data });
   }
 
   createMany(payload: Prisma.ArticleCreateManyInput[]) {
@@ -174,6 +196,12 @@ export class ArticleService {
         }),
       ),
     );
+  }
+
+  deleteMany(payload: string[]) {
+    return this.prisma.article.deleteMany({
+      where: { id: { in: payload } },
+    });
   }
 
   @Cron(CronExpression.EVERY_HOUR, { name: 'article-fetching' })

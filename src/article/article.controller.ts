@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -20,8 +21,12 @@ export class ArticleController {
   constructor(private readonly articleService: ArticleService) {}
 
   @Post()
-  create(@Body() payload: CreateArticleDto) {
-    return this.articleService.create(payload);
+  @UseInterceptors(FileInterceptor('image'))
+  create(
+    @Body() payload: CreateArticleDto,
+    @UploadedFile() image: Express.Multer.File,
+  ) {
+    return this.articleService.create({ ...payload, image });
   }
 
   @Get()
@@ -37,6 +42,11 @@ export class ArticleController {
       cursor,
       isDraft,
     });
+  }
+
+  @Delete()
+  deleteMany(@Query('list') payload: string[]) {
+    return this.articleService.deleteMany(payload);
   }
 
   @Get(':id')
