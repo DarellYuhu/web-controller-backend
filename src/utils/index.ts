@@ -1,3 +1,4 @@
+import { sample } from 'lodash';
 import mime from 'mime';
 import slugCore from 'slugify';
 export const getRandomImgName = (contentType: string) => {
@@ -9,3 +10,17 @@ export const getRandomImgName = (contentType: string) => {
 export const slugify = (text: string) => {
   return slugCore(text, { lower: true, strict: true });
 };
+
+export function weightedRandom<T>(items: T[], weights: number[]): T {
+  const total = weights.reduce((a, b) => a + b, 0);
+  if (total === 0) sample(items);
+  const r = Math.random() * total;
+  let acc = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    acc += weights[i];
+    if (r < acc) return items[i];
+  }
+
+  throw new Error('Should not reach here');
+}

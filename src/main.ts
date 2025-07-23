@@ -13,7 +13,7 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   app.use('/api-docs', apiReference({ content: document, layout: 'classic' }));
   app.set('query parser', 'extended');
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.enableCors({ origin: process.env.ALLOWED_ORIGINS?.split(',') });
   await app.listen(process.env.PORT ?? 3000);
 }

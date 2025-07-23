@@ -36,12 +36,14 @@ Input Text:
   async generateWithPrompt(
     transcript: string,
     categories: string,
-    prompt: string = this.DEFAULT_PROMPT,
+    prompt?: string,
   ) {
-    let content = this.PROMPT_TEMPLATE.replace('{input_text}', transcript)
-      .replace('{input_categories}', categories)
-      .replace('{input_prompt}', this.DEFAULT_PROMPT);
+    let content = this.PROMPT_TEMPLATE.replace(
+      '{input_text}',
+      transcript,
+    ).replace('{input_categories}', categories);
     if (prompt) content = content.replace('{input_prompt}', prompt);
+    else content = content.replace('{input_prompt}', this.DEFAULT_PROMPT);
     const client = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
       baseURL: process.env.TRANSCRIBE_BASE_URL,

@@ -13,6 +13,7 @@ import { ArticleService } from './article.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { PublishArticleDto } from './dto/publish-article.dto';
 
 @Controller('articles')
 export class ArticleController {
@@ -28,11 +29,13 @@ export class ArticleController {
     @Query('project_id') projectId: string,
     @Query('section_type') sectionType: string,
     @Query('cursor') cursor: { id: string; createdAt: string },
+    @Query('is_draft') isDraft: boolean,
   ) {
     return this.articleService.findAll({
       projectId,
       sectionType,
       cursor,
+      isDraft,
     });
   }
 
@@ -56,5 +59,10 @@ export class ArticleController {
     // @ts-ignore
     this.articleService.fetchScheduler();
     return { message: 'scheduler is triggered' };
+  }
+
+  @Post('drafts')
+  async publishArticle(@Body() payload: PublishArticleDto) {
+    return this.articleService.publishArticle(payload);
   }
 }

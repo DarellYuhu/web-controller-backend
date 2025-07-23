@@ -105,10 +105,12 @@ export class GeneratorService {
   private async seedData(projectId: string, dir: string) {
     this.logger.log('Seeding data');
     try {
+      // const mainSectionArticles = await this.prisma.article.findMany({where: {Section: {not}}});
       const rawArticles = await this.prisma.article.findMany({
         where: { projectId },
         include: { Section: true, author: true, image: true },
         orderBy: { createdAt: 'desc' },
+        take: 1000,
       });
       const rawCategories = await this.prisma.category.findMany();
       const articles = await Promise.all(

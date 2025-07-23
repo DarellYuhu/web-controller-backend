@@ -3,7 +3,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
 import slugify from 'slugify';
 import { HttpService } from '@nestjs/axios';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
 import { convert } from 'html-to-text';
 import { TranscriberService } from 'src/transcriber/transcriber.service';
@@ -16,8 +16,9 @@ import { AuthorService } from 'src/author/author.service';
 import { TagService } from 'src/tag/tag.service';
 import { ProjectService } from 'src/project/project.service';
 import { UpdateArticleDto } from './dto/update-article.dto';
-import { getRandomImgName } from 'src/utils';
+import { getRandomImgName, weightedRandom } from 'src/utils';
 import axios from 'axios';
+import { PublishArticleDto } from './dto/publish-article.dto';
 
 @Injectable()
 export class ArticleService {
@@ -32,6 +33,7 @@ export class ArticleService {
     private readonly author: AuthorService,
     private readonly tag: TagService,
     private readonly project: ProjectService,
+    private readonly scheduler: SchedulerRegistry,
   ) {}
 
   create(payload: CreateArticleDto) {
@@ -50,15 +52,17 @@ export class ArticleService {
     projectId,
     sectionType,
     cursor,
+    isDraft,
   }: {
     projectId?: string;
     sectionType?: string;
     cursor?: { id: string; createdAt: string };
+    isDraft: boolean;
   }) {
-    const query: Prisma.ArticleWhereInput = {
-      projectId,
-    };
+    const query: Prisma.ArticleWhereInput = {};
     if (sectionType) query.Section = { type: sectionType as SectionType };
+    if (projectId) query.projectId = projectId;
+    if (isDraft) query.projectId = null;
     const isCursored = cursor && cursor?.id !== '';
     const data = await this.prisma.article.findMany({
       where: query,
@@ -149,7 +153,30 @@ export class ArticleService {
     await this.prisma.$transaction([updateArticle, updateProject]);
   }
 
-  @Cron(CronExpression.EVERY_HOUR)
+  async publishArticle(payload: PublishArticleDto) {
+    const project = await this.prisma.project.findMany({
+      include: { projectTag: true },
+    });
+    const articles = await this.prisma.article.findMany({
+      where: { id: { in: payload.data } },
+    });
+    await this.prisma.$transaction(
+      articles.map((a) =>
+        this.prisma.article.update({
+          where: { id: a.id },
+          data: {
+            projectId: a.tagId
+              ? project.find((p) =>
+                  p.projectTag.some((t) => t.tagId.includes(a.tagId!)),
+                )?.id
+              : sample(project)?.id,
+          },
+        }),
+      ),
+    );
+  }
+
+  @Cron(CronExpression.EVERY_HOUR, { name: 'article-fetching' })
   async fetchScheduler() {
     this.logger.verbose('Scheduler running...');
     // this.scheduler.deleteCronJob('article-fetching');
@@ -235,7 +262,12 @@ export class ArticleService {
       const isWhiteListed = shuffle(whitelistFilter).find(({ name }) =>
         item.content.toLowerCase().includes(name.toLowerCase()),
       );
-      const prompt = sample(isWhiteListed?.whitelistPrompt);
+      const prompt = isWhiteListed
+        ? weightedRandom(
+            isWhiteListed.whitelistPrompt,
+            isWhiteListed.whitelistPrompt.map((i) => i.score),
+          )
+        : null;
       if (isWhiteListed)
         whitelisted.push({ ...item, prompt: prompt?.prompt.text });
       else nonWhitelisted.push(item);
