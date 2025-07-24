@@ -31,6 +31,7 @@ export class ArticleService {
   private readonly logger = new Logger(ArticleService.name, {
     timestamp: true,
   });
+  private readonly NODE_ENV = process.env.NODE_ENV;
   constructor(
     private readonly prisma: PrismaService,
     private readonly http: HttpService,
@@ -207,7 +208,8 @@ export class ArticleService {
   @Cron(CronExpression.EVERY_HOUR, { name: 'article-fetching' })
   async fetchScheduler() {
     this.logger.verbose('Scheduler running...');
-    // this.scheduler.deleteCronJob('article-fetching');
+    if (this.NODE_ENV === 'development')
+      this.scheduler.deleteCronJob('article-fetching');
     const { data } = await firstValueFrom(
       this.http.get<ArticleMetadata[]>('/page/list'),
     );

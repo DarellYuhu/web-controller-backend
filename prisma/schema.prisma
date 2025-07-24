@@ -158,7 +158,7 @@ model Project {
   icon       File?        @relation(fields: [iconId], references: [id], name: "icon")
   logo       File?        @relation(fields: [logoId], references: [id], name: "logo")
   article    Article[]
-  Deployment Deployment[]
+  deployment Deployment[]
   projectTag ProjectTag[]
   section    Section[]
 }

@@ -31,12 +31,11 @@ export class GeneratorService {
   }
 
   async generate(projectId: string) {
-    this.logger.log('Generating web: ', projectId);
     const project = await this.prisma.project.findUniqueOrThrow({
       where: { id: projectId },
-      include: { Deployment: { orderBy: { createdAt: 'desc' }, take: 1 } },
+      include: { deployment: { orderBy: { createdAt: 'desc' }, take: 1 } },
     });
-    const lastDp = project.Deployment[0];
+    const lastDp = project.deployment[0];
     const targetFldr = './tmp/web-template';
     const name = project.slug;
     await execa('rm', ['-rf', targetFldr]);

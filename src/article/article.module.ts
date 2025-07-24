@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ArticleService } from './article.service';
 import { ArticleController } from './article.controller';
 import { HttpModule } from '@nestjs/axios';
-import { BullModule } from '@nestjs/bullmq';
 import { AuthorModule } from 'src/author/author.module';
 import { TagModule } from 'src/tag/tag.module';
 import { ProjectModule } from 'src/project/project.module';
@@ -14,9 +13,6 @@ import { ProjectModule } from 'src/project/project.module';
     ProjectModule,
     HttpModule.register({
       baseURL: 'https://kuda.hitam.id/pavid/en/api',
-    }),
-    BullModule.registerQueue({
-      name: 'article',
     }),
   ],
   controllers: [ArticleController],

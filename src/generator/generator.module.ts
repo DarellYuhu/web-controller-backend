@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
 import { GeneratorService } from './generator.service';
-import { GeneratorController } from './generator.controller';
+import { ProjectModule } from '@/project/project.module';
+import { GeneratorConsumer } from './generator.consumer';
 
 @Module({
-  controllers: [GeneratorController],
-  providers: [GeneratorService],
+  imports: [ProjectModule],
+  providers: [GeneratorService, GeneratorConsumer],
+  exports: [GeneratorService],
 })
 export class GeneratorModule {}

@@ -44,4 +44,8 @@ export class ProjectController {
   update(@Param('id') id: string, @Body() payload: UpdateProjectDto) {
     return this.projectService.update(id, payload);
   }
+
+  @Post(':id/generate') generateManually(@Param('id') id: string) {
+    return this.projectService.generateManually(id);
+  }
 }
