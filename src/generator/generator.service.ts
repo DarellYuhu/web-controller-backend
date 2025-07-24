@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { execa } from 'execa';
 import Docker from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -72,8 +68,8 @@ export class GeneratorService {
         data: { status: 'exited' },
       });
     } catch (err) {
-      console.log(err);
-      throw new InternalServerErrorException('Fail remove deployment');
+      this.logger.error('Fail remove deployment');
+      throw err;
     }
   }
 
@@ -96,8 +92,8 @@ export class GeneratorService {
         .inspect();
       return { id: Id, status: State.Status, name: Name };
     } catch (err) {
-      console.log(err);
-      throw new InternalServerErrorException('Fail deploy container');
+      this.logger.error('Fail deploy container');
+      throw err;
     }
   }
 
@@ -106,7 +102,7 @@ export class GeneratorService {
     try {
       // const mainSectionArticles = await this.prisma.article.findMany({where: {Section: {not}}});
       const rawArticles = await this.prisma.article.findMany({
-        where: { projectId },
+        where: { projectId, authorId: { not: null } },
         include: { Section: true, author: true, image: true },
         orderBy: { createdAt: 'desc' },
         take: 1000,
@@ -197,8 +193,8 @@ export class GeneratorService {
         },
       });
     } catch (err) {
-      console.log(err);
-      throw new InternalServerErrorException('Fail build image');
+      this.logger.error('Fail build image');
+      throw err;
     }
   }
 
@@ -230,8 +226,8 @@ export class GeneratorService {
       });
       await execa('docker', ['rmi', name]);
     } catch (err) {
-      console.log(err);
-      throw new InternalServerErrorException('Fail build image');
+      this.logger.error('Fail build image');
+      throw err;
     }
   }
 }

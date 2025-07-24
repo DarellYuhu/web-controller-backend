@@ -92,9 +92,11 @@ model Author {
   id   String @id @default(uuid())
   name String @unique
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  Article   Article[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  article       Article[]
+  projectAuthor ProjectAuthor[]
 }
 
 model ProjectTag {
@@ -155,12 +157,22 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  icon       File?        @relation(fields: [iconId], references: [id], name: "icon")
-  logo       File?        @relation(fields: [logoId], references: [id], name: "logo")
-  article    Article[]
-  deployment Deployment[]
-  projectTag ProjectTag[]
-  section    Section[]
+  icon          File?           @relation(fields: [iconId], references: [id], name: "icon")
+  logo          File?           @relation(fields: [logoId], references: [id], name: "logo")
+  article       Article[]
+  deployment    Deployment[]
+  projectTag    ProjectTag[]
+  section       Section[]
+  projectAuthor ProjectAuthor[]
+}
+
+model ProjectAuthor {
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+  authorId  String
+  author    Author  @relation(fields: [authorId], references: [id])
+
+  @@unique([projectId, authorId])
 }
 
 model Deployment {

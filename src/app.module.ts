@@ -4,7 +4,6 @@ import { AppService } from './app.service';
 import { ArticleModule } from './article/article.module';
 import { PrismaService } from './prisma/prisma.service';
 import { GeneratorModule } from './generator/generator.module';
-import { DockerModule } from './docker/docker.module';
 import { ProjectModule } from './project/project.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -15,7 +14,6 @@ import { AuthorModule } from './author/author.module';
 import { TagModule } from './tag/tag.module';
 import { WhitelistModule } from './whitelist/whitelist.module';
 import { CategoryModule } from './category/category.module';
-import { UserModule } from './user/user.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { PromptModule } from './prompt/prompt.module';
@@ -26,7 +24,6 @@ import { PromptModule } from './prompt/prompt.module';
     ConfigModule.forRoot({ ignoreEnvFile: true }),
     PrismaModule,
     GeneratorModule,
-    DockerModule,
     ProjectModule,
     TranscriberModule,
     ScheduleModule.forRoot(),
@@ -41,7 +38,6 @@ import { PromptModule } from './prompt/prompt.module';
     TagModule,
     WhitelistModule,
     CategoryModule,
-    UserModule,
     AuthModule,
     PromptModule,
   ],

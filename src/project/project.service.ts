@@ -18,11 +18,14 @@ export class ProjectService {
   ) {}
 
   create(payload: CreateProjectDto) {
-    const { tagIds, ...rest } = payload;
+    const { tagIds, authorIds, ...rest } = payload;
     return this.prisma.project.create({
       data: {
         ...rest,
         slug: slugify(rest.name),
+        projectAuthor: {
+          createMany: { data: authorIds.map((authorId) => ({ authorId })) },
+        },
         projectTag: {
           createMany: { data: tagIds.map((tagId) => ({ tagId })) },
         },
@@ -33,11 +36,15 @@ export class ProjectService {
   async findById(id: string) {
     const data = await this.prisma.project.findUniqueOrThrow({
       where: { id },
-      include: { projectTag: { include: { tag: true } } },
+      include: {
+        projectTag: { include: { tag: true } },
+        projectAuthor: { select: { author: true } },
+      },
     });
     const normalize = {
       ...data,
       projectTag: data.projectTag.map((t) => t.tag.name),
+      projectAuthor: data.projectAuthor.map((a) => a.author.name),
     };
     return normalize;
   }
@@ -72,9 +79,18 @@ export class ProjectService {
         id: project.id,
         name: project.name,
       },
-      { jobId: project.id, removeOnComplete: true },
+      { jobId: project.id, removeOnComplete: true, removeOnFail: true },
     );
   }
+
+  // @Cron(CronExpression.EVERY_5_SECONDS, { name: 'checking' })
+  // async clearQueue() {
+  //   this.scheduler.deleteCronJob('checking');
+  //   const jobs = await this.generatorQueue.getJobs(['paused', 'failed']);
+  //   console.log(jobs);
+  //   await this.generatorQueue.clean(0, 10, 'failed');
+  //   console.log('cleared');
+  // }
 
   @Cron(CronExpression.EVERY_10_SECONDS, { name: 'web-generator-scheduler' })
   async generateScheduler() {
@@ -89,7 +105,7 @@ export class ProjectService {
       projects.map((it) => ({
         name: 'web-generator-worker',
         data: { id: it.id, name: it.name },
-        opts: { jobId: it.id, removeOnComplete: true },
+        opts: { jobId: it.id, removeOnComplete: true, removeOnFail: true },
       })),
     );
   }

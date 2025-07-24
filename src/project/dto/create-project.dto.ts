@@ -23,4 +23,10 @@ export class CreateProjectDto
   @IsArray()
   @Type(() => String)
   tagIds: string[];
+
+  @IsString({ each: true })
+  @IsNotEmpty()
+  @IsArray()
+  @Type(() => String)
+  authorIds: string[];
 }

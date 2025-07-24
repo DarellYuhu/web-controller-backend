@@ -19,7 +19,6 @@ import mime from 'mime';
 import { Prisma, SectionType } from 'generated/prisma';
 import { AuthorService } from 'src/author/author.service';
 import { TagService } from 'src/tag/tag.service';
-import { ProjectService } from 'src/project/project.service';
 import { UpdateArticleDto } from './dto/update-article.dto';
 import { getRandomImgName, weightedRandom } from 'src/utils';
 import axios from 'axios';
@@ -39,7 +38,6 @@ export class ArticleService {
     private readonly minio: MinioService,
     private readonly author: AuthorService,
     private readonly tag: TagService,
-    private readonly project: ProjectService,
     private readonly scheduler: SchedulerRegistry,
   ) {}
 
@@ -84,8 +82,14 @@ export class ArticleService {
   }) {
     const query: Prisma.ArticleWhereInput = {};
     if (sectionType) query.Section = { type: sectionType as SectionType };
-    if (projectId) query.projectId = projectId;
-    if (isDraft) query.projectId = null;
+    if (projectId) {
+      query.projectId = projectId;
+      query.authorId = { not: null };
+    }
+    if (isDraft) {
+      query.projectId = null;
+      query.authorId = null;
+    }
     const isCursored = cursor && cursor?.id !== '';
     const data = await this.prisma.article.findMany({
       where: query,
@@ -177,25 +181,30 @@ export class ArticleService {
   }
 
   async publishArticle(payload: PublishArticleDto) {
-    const project = await this.prisma.project.findMany({
-      include: { projectTag: true },
+    const projects = await this.prisma.project.findMany({
+      include: { projectTag: true, projectAuthor: true },
     });
     const articles = await this.prisma.article.findMany({
       where: { id: { in: payload.data } },
     });
     await this.prisma.$transaction(
-      articles.map((a) =>
-        this.prisma.article.update({
+      articles.map((a) => {
+        const projectId = a.tagId
+          ? projects.find((p) =>
+              p.projectTag.some((t) => t.tagId.includes(a.tagId!)),
+            )?.id
+          : sample(projects)?.id;
+        const authorList = projects
+          .find(({ id }) => id === projectId)
+          ?.projectAuthor.map((pa) => pa.authorId);
+        return this.prisma.article.update({
           where: { id: a.id },
           data: {
-            projectId: a.tagId
-              ? project.find((p) =>
-                  p.projectTag.some((t) => t.tagId.includes(a.tagId!)),
-                )?.id
-              : sample(project)?.id,
+            projectId,
+            authorId: sample(authorList),
           },
-        }),
-      ),
+        });
+      }),
     );
   }
 
@@ -223,18 +232,16 @@ export class ArticleService {
     );
     const { whitelisted, nonWhitelisted } =
       await this.getArticleContent(filteredArticle);
-    const authors = await this.author.findAll();
 
     if (whitelisted.length > 0) {
       const generatedArticles = await this.generateContents(whitelisted);
       this.logger.verbose('Inserting AICG... (Whitelisted)');
-      const payload = generatedArticles.map((item, idx) => ({
+      const payload = generatedArticles.map((item) => ({
         title: item.title,
         slug: slugify(item.title),
         id: item.id.toString(),
         categoryId: item.category,
         contents: item.news,
-        authorId: authors[idx % authors.length].id,
         imageId: item.imageId,
         imgPrompt: item.imgPrompt,
       }));
@@ -242,22 +249,32 @@ export class ArticleService {
     }
 
     if (nonWhitelisted.length > 0) {
+      const authors = await this.author.findAll();
       const generatedArticles = await this.generateContents(nonWhitelisted);
       const tags = await this.tag.findAll();
-      const projects = await this.project.findAll();
+      const projects = await this.prisma.project.findMany({
+        include: { projectAuthor: true },
+      });
       this.logger.verbose('Inserting AICG... (Non-whitelisted)');
-      const payload = generatedArticles.map((item, idx) => ({
-        title: item.title,
-        slug: slugify(item.title),
-        id: item.id.toString(),
-        categoryId: item.category,
-        contents: item.news,
-        projectId: projects[idx % projects.length].id,
-        authorId: authors[idx % authors.length].id,
-        imageId: item.imageId,
-        tagId: tags[idx % tags.length].id,
-        imgPrompt: item.imgPrompt,
-      }));
+      const payload = generatedArticles.map((item, idx) => {
+        const project = projects[idx % projects.length];
+        const author = authors.filter((a) =>
+          project.projectAuthor.map((pa) => pa.authorId).includes(a.id),
+        );
+        const random = sample(author);
+        return {
+          title: item.title,
+          slug: slugify(item.title),
+          id: item.id.toString(),
+          categoryId: item.category,
+          contents: item.news,
+          projectId: project.id,
+          authorId: random?.id ?? sample(authors)?.id,
+          imageId: item.imageId,
+          tagId: tags[idx % tags.length].id,
+          imgPrompt: item.imgPrompt,
+        };
+      });
       await this.createMany(payload);
     }
     this.logger.verbose('Scheduler end...');
