@@ -7,6 +7,7 @@ import { Prisma } from 'generated/prisma';
 import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
+import { DockerService } from '@/docker/docker.service';
 
 @Injectable()
 export class ProjectService {
@@ -14,6 +15,7 @@ export class ProjectService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly scheduler: SchedulerRegistry,
+    private readonly docker: DockerService,
     @InjectQueue('web-generator-queue') private generatorQueue: Queue,
   ) {}
 
@@ -34,17 +36,21 @@ export class ProjectService {
   }
 
   async findById(id: string) {
-    const data = await this.prisma.project.findUniqueOrThrow({
-      where: { id },
-      include: {
-        projectTag: { include: { tag: true } },
-        projectAuthor: { select: { author: true } },
+    const { deployment, ...data } = await this.prisma.project.findUniqueOrThrow(
+      {
+        where: { id },
+        include: {
+          projectTag: { include: { tag: true } },
+          projectAuthor: { select: { author: true } },
+          deployment: { orderBy: { createdAt: 'desc' } },
+        },
       },
-    });
+    );
     const normalize = {
       ...data,
       projectTag: data.projectTag.map((t) => t.tag.name),
       projectAuthor: data.projectAuthor.map((a) => a.author.name),
+      status: deployment[0].status,
     };
     return normalize;
   }
@@ -83,6 +89,22 @@ export class ProjectService {
     );
   }
 
+  async stopDeployment(id: string) {
+    const project = await this.prisma.project.findUnique({
+      where: { id },
+      select: { deployment: { orderBy: { createdAt: 'desc' } }, id: true },
+    });
+    if (!project) throw new NotFoundException('Project not found');
+    const dpId = project.deployment[0].id;
+    if (dpId) {
+      await this.docker.rmDeploy(dpId);
+      await this.prisma.project.update({
+        where: { id: project.id },
+        data: { isStopManually: true },
+      });
+    }
+  }
+
   // @Cron(CronExpression.EVERY_5_SECONDS, { name: 'checking' })
   // async clearQueue() {
   //   this.scheduler.deleteCronJob('checking');
@@ -98,7 +120,10 @@ export class ProjectService {
       this.scheduler.deleteCronJob('web-generator-scheduler');
     const oneHourAgo = new Date(Date.now() - 1000 * 60 * 60);
     const projects = await this.prisma.project.findMany({
-      where: { deployment: { every: { createdAt: { lt: oneHourAgo } } } },
+      where: {
+        deployment: { every: { createdAt: { lt: oneHourAgo } } },
+        isStopManually: false,
+      },
     });
 
     await this.generatorQueue.addBulk(

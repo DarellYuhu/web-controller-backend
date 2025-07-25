@@ -146,13 +146,14 @@ model Prompt {
 }
 
 model Project {
-  id          String  @unique @default(uuid())
-  name        String
-  slug        String  @unique
-  port        Int     @unique
-  description String
-  iconId      String?
-  logoId      String?
+  id             String  @unique @default(uuid())
+  name           String
+  slug           String  @unique
+  port           Int     @unique
+  description    String
+  iconId         String?
+  logoId         String?
+  isStopManually Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -48,4 +48,8 @@ export class ProjectController {
   @Post(':id/generate') generateManually(@Param('id') id: string) {
     return this.projectService.generateManually(id);
   }
+
+  @Post(':id/stop') stopDeployment(@Param('id') id: string) {
+    return this.projectService.stopDeployment(id);
+  }
 }

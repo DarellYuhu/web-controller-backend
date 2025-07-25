@@ -17,6 +17,7 @@ import { CategoryModule } from './category/category.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule } from '@nestjs/config';
 import { PromptModule } from './prompt/prompt.module';
+import { DockerModule } from './docker/docker.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { PromptModule } from './prompt/prompt.module';
     CategoryModule,
     AuthModule,
     PromptModule,
+    DockerModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],

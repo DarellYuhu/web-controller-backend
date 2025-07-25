@@ -26,7 +26,7 @@ export class GeneratorConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent('stalled')
-  onStall(job: JobType) {
-    this.logger.error(`Stall project ${job.data.name} (${job.id})`);
+  onStall(jobId: string) {
+    this.logger.error(`Stall project (${jobId})`);
   }
 }

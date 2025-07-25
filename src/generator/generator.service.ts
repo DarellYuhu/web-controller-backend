@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { execa } from 'execa';
-import Docker from 'dockerode';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   articleSchema,
@@ -10,10 +9,10 @@ import {
 import { writeFile } from 'fs/promises';
 import { z } from 'zod/v4';
 import { MinioService } from '@/minio/minio.service';
+import { DockerService } from '@/docker/docker.service';
 
 @Injectable()
 export class GeneratorService {
-  private readonly docker: Docker;
   private readonly TEMPLATE_REPOSITORY: string;
   private readonly logger = new Logger(GeneratorService.name, {
     timestamp: true,
@@ -21,8 +20,8 @@ export class GeneratorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly minio: MinioService,
+    private readonly docker: DockerService,
   ) {
-    this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
     this.TEMPLATE_REPOSITORY = process.env.TEMPLATE_REPOSITORY ?? '';
   }
 
@@ -36,11 +35,12 @@ export class GeneratorService {
     const name = project.slug;
     await execa('rm', ['-rf', targetFldr]);
     await execa('git', ['clone', this.TEMPLATE_REPOSITORY, targetFldr]);
-    await this.buildImg(projectId, targetFldr, name);
+    await this.seedData(projectId, targetFldr);
+    await this.docker.buildImg(targetFldr, name);
     if (lastDp && lastDp.status === 'running') {
-      await this.rmDeploy(lastDp.id);
+      await this.docker.rmDeploy(lastDp.id);
     }
-    const dpData = await this.deployCtr(
+    const dpData = await this.docker.deployCtr(
       `${targetFldr}/${name}.tar.gz`,
       name,
       project.port,
@@ -52,49 +52,6 @@ export class GeneratorService {
       },
     });
     this.logger.log('Web generated successfully');
-  }
-
-  private async rmDeploy(dpId: string) {
-    this.logger.log('Remove Deployment');
-    try {
-      const container = this.docker.getContainer(dpId);
-      const State = (await container.inspect()).State;
-      if (State.Status === 'running' || State.Status === 'exited') {
-        // await container.stop();
-        await container.remove({ force: true });
-      }
-      await this.prisma.deployment.update({
-        where: { id: dpId },
-        data: { status: 'exited' },
-      });
-    } catch (err) {
-      this.logger.error('Fail remove deployment');
-      throw err;
-    }
-  }
-
-  private async deployCtr(imgPath: string, imgName: string, port: number) {
-    this.logger.log('Deploying container');
-    try {
-      await this.docker.loadImage(imgPath);
-      const container = await this.docker.createContainer({
-        Image: imgName,
-        name: `${imgName}-ctr`,
-        HostConfig: {
-          PortBindings: {
-            '3000/tcp': [{ HostPort: `${port}`, HostIp: '127.0.0.1' }],
-          },
-        },
-      });
-      await container.start();
-      const { Id, State, Name } = await this.docker
-        .getContainer(`${imgName}-ctr`)
-        .inspect();
-      return { id: Id, status: State.Status, name: Name };
-    } catch (err) {
-      this.logger.error('Fail deploy container');
-      throw err;
-    }
   }
 
   private async seedData(projectId: string, dir: string) {
@@ -193,7 +150,7 @@ export class GeneratorService {
         },
       });
     } catch (err) {
-      this.logger.error('Fail build image');
+      this.logger.error('Fail seeding data');
       throw err;
     }
   }
@@ -208,26 +165,5 @@ export class GeneratorService {
     const filename = name.concat('.json');
     await writeFile(dir.concat('/', filename), JSON.stringify(data));
     return filename;
-  }
-
-  private async buildImg(projectId: string, dir: string, name: string) {
-    try {
-      await this.seedData(projectId, dir);
-      this.logger.log('Build img');
-      await execa('sh', ['-c', 'echo "DATABASE_URL=file:./prod.db" > .env'], {
-        cwd: dir,
-      });
-      await execa('docker', ['build', '-t', name, '.'], {
-        cwd: dir,
-        env: { DATABASE_URL: 'file:./prod.db' },
-      });
-      await execa('sh', ['-c', `docker save ${name} | gzip > ${name}.tar.gz`], {
-        cwd: dir,
-      });
-      await execa('docker', ['rmi', name]);
-    } catch (err) {
-      this.logger.error('Fail build image');
-      throw err;
-    }
   }
 }
