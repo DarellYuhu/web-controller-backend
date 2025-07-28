@@ -66,11 +66,12 @@ export class ProjectService {
     }));
   }
 
-  async update(id: string, payload: UpdateProjectDto) {
-    const data: Prisma.ProjectUpdateInput = {};
-    if (payload.newSection)
+  async update(id: string, { newSection, ...payload }: UpdateProjectDto) {
+    const data: Prisma.ProjectUpdateInput = { ...payload };
+    if (payload.name) data.slug = slugify(payload.name);
+    if (newSection)
       data.section = {
-        createMany: { data: payload.newSection, skipDuplicates: true },
+        createMany: { data: newSection, skipDuplicates: true },
       };
 
     return this.prisma.project.update({ where: { id }, data });

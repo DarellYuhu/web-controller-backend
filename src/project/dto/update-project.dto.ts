@@ -25,4 +25,8 @@ export class UpdateProjectDto {
   @Type(() => NewSection)
   @IsOptional()
   newSection?: NewSection;
+
+  @IsString()
+  @IsOptional()
+  name?: string;
 }

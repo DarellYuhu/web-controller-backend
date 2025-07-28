@@ -125,7 +125,7 @@ export class ArticleService {
     const lastItm = normalized[normalized.length - 1];
     return {
       data: normalized,
-      cursor: { id: lastItm.id, createdAt: lastItm.createdAt },
+      cursor: { id: lastItm?.id, createdAt: lastItm?.createdAt },
     };
   }
 

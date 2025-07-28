@@ -10,6 +10,7 @@ import { writeFile } from 'fs/promises';
 import { z } from 'zod/v4';
 import { MinioService } from '@/minio/minio.service';
 import { DockerService } from '@/docker/docker.service';
+import { unionBy } from 'lodash';
 
 @Injectable()
 export class GeneratorService {
@@ -32,17 +33,23 @@ export class GeneratorService {
     });
     const lastDp = project.deployment[0];
     const targetFldr = './tmp/web-template';
-    const name = project.slug;
+    const slug = project.slug;
     await execa('rm', ['-rf', targetFldr]);
     await execa('git', ['clone', this.TEMPLATE_REPOSITORY, targetFldr]);
     await this.seedData(projectId, targetFldr);
-    await this.docker.buildImg(targetFldr, name);
+    await this.docker.buildImg({
+      slug,
+      id: projectId,
+      dir: targetFldr,
+      desc: project.description,
+      name: project.name,
+    });
     if (lastDp && lastDp.status === 'running') {
       await this.docker.rmDeploy(lastDp.id);
     }
     const dpData = await this.docker.deployCtr(
-      `${targetFldr}/${name}.tar.gz`,
-      name,
+      `${targetFldr}/${slug}.tar.gz`,
+      slug,
       project.port,
     );
     await this.prisma.deployment.create({
@@ -57,13 +64,22 @@ export class GeneratorService {
   private async seedData(projectId: string, dir: string) {
     this.logger.log('Seeding data');
     try {
-      // const mainSectionArticles = await this.prisma.article.findMany({where: {Section: {not}}});
-      const rawArticles = await this.prisma.article.findMany({
-        where: { projectId, authorId: { not: null } },
+      const project = await this.prisma.project.findUniqueOrThrow({
+        where: { id: projectId },
+        include: { icon: true, logo: true },
+      });
+      const mainSectionArticles = await this.prisma.article.findMany({
+        where: { Section: { isNot: null } },
+        include: { Section: true, author: true, image: true },
+        orderBy: { createdAt: 'desc' },
+      });
+      const otherArticles = await this.prisma.article.findMany({
+        where: { projectId: project.id, authorId: { not: null } },
         include: { Section: true, author: true, image: true },
         orderBy: { createdAt: 'desc' },
         take: 1000,
       });
+      const rawArticles = unionBy(mainSectionArticles, otherArticles, 'id');
       const rawCategories = await this.prisma.category.findMany();
       const articles = await Promise.all(
         rawArticles.map(async (itm) => {
@@ -126,6 +142,18 @@ export class GeneratorService {
         topPicks,
         sectionSchema,
       );
+      if (project.icon) {
+        await this.minio.copyObjectToLocal(
+          project.icon.fullPath,
+          dir.concat(`/src/app/${project.icon.name}`),
+        );
+      }
+      if (project.logo) {
+        await this.minio.copyObjectToLocal(
+          project.logo.fullPath,
+          dir.concat(`/public/assets/${project.logo.name}`),
+        );
+      }
       await execa('npm', ['i'], { cwd: dir });
       await execa(
         'npx',
@@ -151,6 +179,7 @@ export class GeneratorService {
       });
     } catch (err) {
       this.logger.error('Fail seeding data');
+      console.log(err);
       throw err;
     }
   }

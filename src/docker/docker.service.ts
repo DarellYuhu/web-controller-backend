@@ -30,20 +30,40 @@ export class DockerService {
     }
   }
 
-  async buildImg(dir: string, name: string) {
+  async buildImg(opts: {
+    id: string;
+    dir: string;
+    slug: string;
+    name: string;
+    desc: string;
+  }) {
     try {
       this.logger.log('Build img');
-      await execa('sh', ['-c', 'echo "DATABASE_URL=file:./prod.db" > .env'], {
-        cwd: dir,
+      await execa(
+        'sh',
+        [
+          '-c',
+          'echo "DATABASE_URL=file:./prod.db\nWEBSITE_NAME=' +
+            opts.name +
+            '\nWEBSITE_DESC=' +
+            opts.desc +
+            '" > .env',
+        ],
+        {
+          cwd: opts.dir,
+        },
+      );
+      await execa('docker', ['build', '-t', opts.slug, '.'], {
+        cwd: opts.dir,
       });
-      await execa('docker', ['build', '-t', name, '.'], {
-        cwd: dir,
-        env: { DATABASE_URL: 'file:./prod.db' },
-      });
-      await execa('sh', ['-c', `docker save ${name} | gzip > ${name}.tar.gz`], {
-        cwd: dir,
-      });
-      await execa('docker', ['rmi', name]);
+      await execa(
+        'sh',
+        ['-c', `docker save ${opts.slug} | gzip > ${opts.slug}.tar.gz`],
+        {
+          cwd: opts.dir,
+        },
+      );
+      await execa('docker', ['rmi', opts.slug]);
     } catch (err) {
       this.logger.error('Fail build image');
       throw err;
