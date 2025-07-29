@@ -1,4 +1,4 @@
-import { slugify } from '@/utils';
+import { getRandomImgName, slugify } from '@/utils';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -8,6 +8,7 @@ import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { Queue } from 'bullmq';
 import { InjectQueue } from '@nestjs/bullmq';
 import { DockerService } from '@/docker/docker.service';
+import { MinioService } from '@/minio/minio.service';
 
 @Injectable()
 export class ProjectService {
@@ -16,6 +17,7 @@ export class ProjectService {
     private readonly prisma: PrismaService,
     private readonly scheduler: SchedulerRegistry,
     private readonly docker: DockerService,
+    private readonly minio: MinioService,
     @InjectQueue('web-generator-queue') private generatorQueue: Queue,
   ) {}
 
@@ -43,6 +45,8 @@ export class ProjectService {
           projectTag: { include: { tag: true } },
           projectAuthor: { select: { author: true } },
           deployment: { orderBy: { createdAt: 'desc' } },
+          logo: true,
+          icon: true,
         },
       },
     );
@@ -51,6 +55,12 @@ export class ProjectService {
       projectTag: data.projectTag.map((t) => t.tag.name),
       projectAuthor: data.projectAuthor.map((a) => a.author.name),
       status: deployment[0].status,
+      logo:
+        data.logo &&
+        (await this.minio.getImageUrl(data.logo.bucket, data.logo.path)),
+      icon:
+        data.icon &&
+        (await this.minio.getImageUrl(data.icon.bucket, data.icon.path)),
     };
     return normalize;
   }
@@ -66,9 +76,34 @@ export class ProjectService {
     }));
   }
 
-  async update(id: string, { newSection, ...payload }: UpdateProjectDto) {
+  async update(
+    id: string,
+    { newSection, icon, logo, ...payload }: UpdateProjectDto,
+  ) {
     const data: Prisma.ProjectUpdateInput = { ...payload };
     if (payload.name) data.slug = slugify(payload.name);
+    if (logo) {
+      const name = getRandomImgName(logo.mimetype);
+      const id = await this.minio.addFile({
+        name,
+        path: `image/${name}`,
+        bucket: 'media',
+        buffer: logo.buffer,
+        contentType: logo.mimetype,
+      });
+      data.logo = { connect: { id } };
+    }
+    if (icon) {
+      const name = getRandomImgName(icon.mimetype);
+      const id = await this.minio.addFile({
+        name,
+        path: `image/${name}`,
+        bucket: 'media',
+        buffer: icon.buffer,
+        contentType: icon.mimetype,
+      });
+      data.icon = { connect: { id } };
+    }
     if (newSection)
       data.section = {
         createMany: { data: newSection, skipDuplicates: true },

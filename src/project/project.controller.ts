@@ -6,11 +6,14 @@ import {
   Param,
   Patch,
   Post,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ProjectService } from './project.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { PrismaClientKnownRequestError } from 'generated/prisma/runtime/library';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 
 @Controller('projects')
 export class ProjectController {
@@ -41,8 +44,26 @@ export class ProjectController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() payload: UpdateProjectDto) {
-    return this.projectService.update(id, payload);
+  @UseInterceptors(
+    FileFieldsInterceptor([
+      { name: 'logo', maxCount: 1 },
+      { name: 'icon', maxCount: 1 },
+    ]),
+  )
+  update(
+    @Param('id') id: string,
+    @Body() payload: UpdateProjectDto,
+    @UploadedFiles()
+    files?: {
+      logo?: Express.Multer.File[];
+      icon?: Express.Multer.File[];
+    },
+  ) {
+    return this.projectService.update(id, {
+      ...payload,
+      icon: files?.icon?.[0],
+      logo: files?.logo?.[0],
+    });
   }
 
   @Post(':id/generate') generateManually(@Param('id') id: string) {

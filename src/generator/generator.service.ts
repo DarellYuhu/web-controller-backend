@@ -11,6 +11,7 @@ import { z } from 'zod/v4';
 import { MinioService } from '@/minio/minio.service';
 import { DockerService } from '@/docker/docker.service';
 import { unionBy } from 'lodash';
+import mime from 'mime';
 
 @Injectable()
 export class GeneratorService {
@@ -145,13 +146,18 @@ export class GeneratorService {
       if (project.icon) {
         await this.minio.copyObjectToLocal(
           project.icon.fullPath,
-          dir.concat(`/src/app/${project.icon.name}`),
+          dir.concat(
+            `/src/app/icon.${mime.getExtension(project.icon.contentType)}`,
+          ),
         );
+        await execa('rm', ['src/app/favicon.ico'], { cwd: dir });
       }
       if (project.logo) {
         await this.minio.copyObjectToLocal(
           project.logo.fullPath,
-          dir.concat(`/public/assets/${project.logo.name}`),
+          dir.concat(
+            `/public/assets/logo.${mime.getExtension(project.logo.contentType)}`,
+          ),
         );
       }
       await execa('npm', ['i'], { cwd: dir });

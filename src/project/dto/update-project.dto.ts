@@ -29,4 +29,8 @@ export class UpdateProjectDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  // just for type
+  icon?: Express.Multer.File;
+  logo?: Express.Multer.File;
 }

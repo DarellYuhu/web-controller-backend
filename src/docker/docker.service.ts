@@ -2,6 +2,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, Logger } from '@nestjs/common';
 import Dockerode from 'dockerode';
 import { execa } from 'execa';
+import mime from 'mime';
 
 @Injectable()
 export class DockerService {
@@ -39,6 +40,10 @@ export class DockerService {
   }) {
     try {
       this.logger.log('Build img');
+      const { logo } = await this.prisma.project.findUniqueOrThrow({
+        where: { id: opts.id },
+        select: { logo: true },
+      });
       await execa(
         'sh',
         [
@@ -53,6 +58,16 @@ export class DockerService {
           cwd: opts.dir,
         },
       );
+      if (logo) {
+        await execa(
+          'sh',
+          [
+            '-c',
+            `echo 'LOGO_PATH=/assets/logo.${mime.getExtension(logo.contentType)}' >> .env`,
+          ],
+          { cwd: opts.dir },
+        );
+      }
       await execa('docker', ['build', '-t', opts.slug, '.'], {
         cwd: opts.dir,
       });
