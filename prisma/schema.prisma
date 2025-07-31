@@ -153,6 +153,7 @@ model Project {
   description    String
   iconId         String?
   logoId         String?
+  template       Json?
   isStopManually Boolean @default(false)
 
   createdAt DateTime @default(now())

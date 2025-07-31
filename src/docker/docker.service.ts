@@ -81,6 +81,7 @@ export class DockerService {
       await execa('docker', ['rmi', opts.slug]);
     } catch (err) {
       this.logger.error('Fail build image');
+      console.log(err);
       throw err;
     }
   }

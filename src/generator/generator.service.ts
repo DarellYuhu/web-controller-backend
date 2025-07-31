@@ -12,6 +12,7 @@ import { MinioService } from '@/minio/minio.service';
 import { DockerService } from '@/docker/docker.service';
 import { unionBy } from 'lodash';
 import mime from 'mime';
+import { TemplateSchema } from '@/project/dto/update-project.dto';
 
 @Injectable()
 export class GeneratorService {
@@ -158,6 +159,14 @@ export class GeneratorService {
           dir.concat(
             `/public/assets/logo.${mime.getExtension(project.logo.contentType)}`,
           ),
+        );
+      }
+      if (project.template) {
+        const data = JSON.parse(project.template as string) as TemplateSchema;
+        const filename = 'template.json';
+        await writeFile(
+          dir.concat('/public/data/', filename),
+          JSON.stringify(data, null, 2),
         );
       }
       await execa('npm', ['i'], { cwd: dir });

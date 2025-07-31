@@ -2,7 +2,7 @@ import { getRandomImgName, slugify } from '@/utils';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
-import { UpdateProjectDto } from './dto/update-project.dto';
+import { TemplateSchema, UpdateProjectDto } from './dto/update-project.dto';
 import { Prisma } from 'generated/prisma';
 import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { Queue } from 'bullmq';
@@ -55,6 +55,9 @@ export class ProjectService {
       projectTag: data.projectTag.map((t) => t.tag.name),
       projectAuthor: data.projectAuthor.map((a) => a.author.name),
       status: deployment[0].status,
+      template: data.template
+        ? (JSON.parse(data.template as string) as TemplateSchema)
+        : null,
       logo:
         data.logo &&
         (await this.minio.getImageUrl(data.logo.bucket, data.logo.path)),
@@ -78,10 +81,11 @@ export class ProjectService {
 
   async update(
     id: string,
-    { newSection, icon, logo, ...payload }: UpdateProjectDto,
+    { newSection, icon, logo, template, ...payload }: UpdateProjectDto,
   ) {
     const data: Prisma.ProjectUpdateInput = { ...payload };
     if (payload.name) data.slug = slugify(payload.name);
+    if (template) data.template = JSON.stringify(template);
     if (logo) {
       const name = getRandomImgName(logo.mimetype);
       const id = await this.minio.addFile({
@@ -115,6 +119,10 @@ export class ProjectService {
   async generateManually(id: string) {
     const project = await this.prisma.project.findUnique({ where: { id } });
     if (!project) throw new NotFoundException('Project not found');
+    await this.prisma.project.update({
+      where: { id },
+      data: { isStopManually: false },
+    });
     await this.generatorQueue.add(
       'web-generator-worker',
       {

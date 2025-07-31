@@ -3,6 +3,7 @@ import {
   IsArray,
   IsEnum,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   ValidateNested,
@@ -19,6 +20,20 @@ export class NewSection {
   type: SectionType;
 }
 
+export class TemplateSchema {
+  @IsNumber()
+  @IsNotEmpty()
+  header: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  highlight: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  topPicks: number;
+}
+
 export class UpdateProjectDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -29,6 +44,11 @@ export class UpdateProjectDto {
   @IsString()
   @IsOptional()
   name?: string;
+
+  @Type(() => TemplateSchema)
+  @ValidateNested()
+  @IsOptional()
+  template?: TemplateSchema;
 
   // just for type
   icon?: Express.Multer.File;
