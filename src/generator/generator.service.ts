@@ -71,7 +71,11 @@ export class GeneratorService {
         include: { icon: true, logo: true },
       });
       const mainSectionArticles = await this.prisma.article.findMany({
-        where: { Section: { isNot: null } },
+        where: {
+          projectId: project.id,
+          Section: { isNot: null },
+          authorId: { not: null },
+        },
         include: { Section: true, author: true, image: true },
         orderBy: { createdAt: 'desc' },
       });

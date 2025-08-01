@@ -1,5 +1,6 @@
 import { PrismaService } from '@/prisma/prisma.service';
 import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import Dockerode from 'dockerode';
 import { execa } from 'execa';
 import mime from 'mime';
@@ -11,7 +12,10 @@ export class DockerService {
     socketPath: '/var/run/docker.sock',
   });
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly scheduler: SchedulerRegistry,
+  ) {}
 
   async rmDeploy(dpId: string) {
     this.logger.log('Remove Deployment');
@@ -108,5 +112,12 @@ export class DockerService {
       this.logger.error('Fail deploy container');
       throw err;
     }
+  }
+
+  @Cron(CronExpression.EVERY_5_HOURS, { name: 'prune-images-scheduler' })
+  async pruneImage() {
+    this.logger.log('Prune dangling images');
+    this.scheduler.deleteCronJob('prune-images-scheduler');
+    await this.docker.pruneImages();
   }
 }
