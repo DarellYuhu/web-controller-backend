@@ -128,9 +128,9 @@ model Whitelist {
 
 model WhitelistPrompt {
   whitelistId String
-  whitelist   Whitelist @relation(fields: [whitelistId], references: [id])
+  whitelist   Whitelist @relation(fields: [whitelistId], references: [id], onDelete: Cascade)
   promptId    String
-  prompt      Prompt    @relation(fields: [promptId], references: [id])
+  prompt      Prompt    @relation(fields: [promptId], references: [id], onDelete: Cascade)
   score       Int       @default(0)
 
   @@unique([whitelistId, promptId])

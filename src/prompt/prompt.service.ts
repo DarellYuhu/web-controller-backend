@@ -15,4 +15,8 @@ export class PromptService {
   findAll() {
     return this.prisma.prompt.findMany();
   }
+
+  delete(id: string) {
+    return this.prisma.prompt.delete({ where: { id } });
+  }
 }

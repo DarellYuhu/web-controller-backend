@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { WhitelistService } from './whitelist.service';
 import { MetadataCreateDto } from 'src/dtos/metadata-create-dto';
 import { AddPromptsDto } from './dto/add-prompts.dto';
@@ -16,6 +24,11 @@ export class WhitelistController {
   @Get()
   findAll() {
     return this.whitelistService.findAll();
+  }
+
+  @Delete(':id')
+  delete(@Param('id') id: string) {
+    return this.whitelistService.delete(id);
   }
 
   @Post(':id/prompts') addPrompts(

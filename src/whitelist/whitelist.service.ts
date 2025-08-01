@@ -27,6 +27,10 @@ export class WhitelistService {
     }));
   }
 
+  delete(id: string) {
+    return this.prisma.whitelist.delete({ where: { id } });
+  }
+
   addPrompts(whitelistId: string, payload: AddPromptsDto) {
     return this.prisma.whitelistPrompt.createMany({
       data: payload.data.map((promptId) => ({ whitelistId, promptId })),
