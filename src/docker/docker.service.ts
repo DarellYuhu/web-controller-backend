@@ -8,6 +8,7 @@ import mime from 'mime';
 @Injectable()
 export class DockerService {
   private readonly logger = new Logger(DockerService.name);
+  private readonly NODE_ENV = process.env.NODE_ENV;
   private readonly docker = new Dockerode({
     socketPath: '/var/run/docker.sock',
   });
@@ -114,10 +115,11 @@ export class DockerService {
     }
   }
 
-  @Cron(CronExpression.EVERY_5_HOURS, { name: 'prune-images-scheduler' })
+  @Cron(CronExpression.EVERY_HOUR, { name: 'prune-images-scheduler' })
   async pruneImage() {
     this.logger.log('Prune dangling images');
-    this.scheduler.deleteCronJob('prune-images-scheduler');
+    if (this.NODE_ENV === 'development')
+      this.scheduler.deleteCronJob('prune-images-scheduler');
     await this.docker.pruneImages();
   }
 }

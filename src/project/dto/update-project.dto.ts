@@ -32,6 +32,10 @@ export class TemplateSchema {
   @IsNumber()
   @IsNotEmpty()
   topPicks: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  articleHeader: number;
 }
 
 export class UpdateProjectDto {
