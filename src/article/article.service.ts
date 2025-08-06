@@ -87,8 +87,7 @@ export class ArticleService {
       query.authorId = { not: null };
     }
     if (isDraft) {
-      query.projectId = null;
-      query.authorId = null;
+      query.OR = [{ project: null }, { authorId: null }];
     }
     const isCursored = cursor && cursor?.id !== '';
     const data = await this.prisma.article.findMany({
