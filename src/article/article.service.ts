@@ -6,7 +6,6 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateArticleDto } from './dto/create-article.dto';
-import slugify from 'slugify';
 import { HttpService } from '@nestjs/axios';
 import { Cron, CronExpression, SchedulerRegistry } from '@nestjs/schedule';
 import { firstValueFrom } from 'rxjs';
@@ -20,7 +19,7 @@ import { Prisma, SectionType } from 'generated/prisma';
 import { AuthorService } from 'src/author/author.service';
 import { TagService } from 'src/tag/tag.service';
 import { UpdateArticleDto } from './dto/update-article.dto';
-import { getRandomImgName, weightedRandom } from 'src/utils';
+import { getRandomImgName, slugify, weightedRandom } from 'src/utils';
 import axios from 'axios';
 import { fileTypeFromBuffer } from 'file-type';
 import { PublishArticleDto } from './dto/publish-article.dto';
