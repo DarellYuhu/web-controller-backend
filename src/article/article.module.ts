@@ -10,7 +10,7 @@ import { TagModule } from 'src/tag/tag.module';
     AuthorModule,
     TagModule,
     HttpModule.register({
-      baseURL: 'https://kuda.hitam.id/pavid/en/api',
+      baseURL: process.env.NEWS_PORTAL_URL,
     }),
   ],
   controllers: [ArticleController],

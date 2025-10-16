@@ -22,9 +22,9 @@ compose-up:
 compose-down:
 	docker compose -f ${DOCKER_COMPOSE_PATH} down
 
-build:
+docker-build:
 	docker build -t darellyuhu/web-controller-backend:latest .
 
-push:
+docker-push:
 	docker image push darellyuhu/web-controller-backend:latest
 
