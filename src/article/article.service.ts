@@ -347,6 +347,7 @@ export class ArticleService {
           return {
             id: value.id,
             imageId: await this.getImage(item.value.generated.imgPrompt),
+            datePublished: value.date,
             ...value.generated,
           };
         }),
