@@ -32,6 +32,9 @@ export class DockerService {
       });
     } catch (err) {
       this.logger.error('Fail remove deployment');
+      if ((err as { statusCode: number }).statusCode === 404)
+        return this.logger.warn(`Container with ID: ${dpId} not found`);
+      console.log(err);
       throw err;
     }
   }
